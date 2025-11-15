@@ -1,8 +1,8 @@
 package com.chalwk.ui;
 
-import com.chalwk.model.ServerConfig;
 import com.chalwk.model.ServerType;
 import com.chalwk.service.ServerService;
+import com.chalwk.ui.components.ScriptBrowserPanel;
 import com.chalwk.ui.components.ServerPanel;
 import com.chalwk.util.PreferencesManager;
 
@@ -13,7 +13,8 @@ import java.io.File;
 public class MainFrame extends JFrame {
     private ServerPanel hpcPanel;
     private ServerPanel hcePanel;
-    private PreferencesManager preferencesManager;
+    private ScriptBrowserPanel scriptBrowserPanel;
+    private final PreferencesManager preferencesManager;
 
     public MainFrame() {
         preferencesManager = new PreferencesManager();
@@ -24,7 +25,7 @@ public class MainFrame extends JFrame {
     private void initializeUI() {
         setTitle("Halo Server Manager");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(900, 700));
+        setMinimumSize(new Dimension(1000, 800));
 
         // Create main panel with border layout
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -36,8 +37,12 @@ public class MainFrame extends JFrame {
         hpcPanel = new ServerPanel(ServerType.HPC, this, preferencesManager);
         hcePanel = new ServerPanel(ServerType.HCE, this, preferencesManager);
 
+        // Create script browser panel
+        scriptBrowserPanel = new ScriptBrowserPanel(this);
+
         tabbedPane.addTab("Halo PC Server", hpcPanel);
         tabbedPane.addTab("Halo CE Server", hcePanel);
+        tabbedPane.addTab("Script Browser", scriptBrowserPanel);
 
         mainPanel.add(tabbedPane, BorderLayout.CENTER);
 
