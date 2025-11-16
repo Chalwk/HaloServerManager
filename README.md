@@ -33,7 +33,7 @@ configurations, browsing and installing Lua scripts, and launching your dedicate
 - **One-Click Installation**: Download scripts directly to the appropriate server's Lua folder
 - **GitHub Integration**: View scripts on GitHub with direct links
 
-### Professional Interface
+### Interface
 
 - **Tabbed Interface**: Separate tabs for Halo PC, Halo CE, and Script Browser
 - **Syntax Highlighting**: Lua script editor with color-coded syntax
