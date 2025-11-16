@@ -1,24 +1,31 @@
 package com.chalwk.ui;
 
 import com.chalwk.model.ServerType;
+import com.chalwk.model.UpdateConfig;
 import com.chalwk.service.ServerService;
+import com.chalwk.service.UpdateService;
 import com.chalwk.ui.components.ScriptBrowserPanel;
 import com.chalwk.ui.components.ServerPanel;
 import com.chalwk.util.PreferencesManager;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
 
 public class MainFrame extends JFrame {
     private final PreferencesManager preferencesManager;
     private ServerPanel hpcPanel;
     private ServerPanel hcePanel;
+    private JMenuItem updateMenuItem;
+    private JMenuItem aboutMenuItem;
 
     public MainFrame() {
         preferencesManager = new PreferencesManager();
         initializeUI();
         loadPreviousConfigurations();
+        checkForUpdatesOnStartup();
     }
 
     public void refreshFileTrees() {
@@ -30,6 +37,22 @@ public class MainFrame extends JFrame {
         setTitle("Halo Server Manager");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1000, 800));
+
+        JMenuBar menuBar = new JMenuBar();
+        JMenu helpMenu = new JMenu("Help");
+
+        updateMenuItem = new JMenuItem("Check for Updates");
+        aboutMenuItem = new JMenuItem("About");
+
+        updateMenuItem.addActionListener(new UpdateActionListener());
+        aboutMenuItem.addActionListener(e -> showAboutDialog());
+
+        helpMenu.add(updateMenuItem);
+        helpMenu.addSeparator();
+        helpMenu.add(aboutMenuItem);
+
+        menuBar.add(helpMenu);
+        setJMenuBar(menuBar);
 
         // Create main panel with border layout
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -64,6 +87,63 @@ public class MainFrame extends JFrame {
         // Center on screen
         pack();
         setLocationRelativeTo(null);
+    }
+
+    private void checkForUpdatesOnStartup() {
+        // Check if we should check for updates on startup (you could make this configurable)
+        boolean checkOnStartup = true; // Could be loaded from preferences
+
+        if (checkOnStartup) {
+            // Delay the check to let the UI load first
+            Timer timer = new Timer(3000, e -> checkForUpdates(false));
+            timer.setRepeats(false);
+            timer.start();
+        }
+    }
+
+    private void checkForUpdates(boolean userInitiated) {
+        new Thread(() -> {
+            try {
+                UpdateConfig updateConfig = UpdateService.checkForUpdates();
+
+                if (updateConfig.isUpdateAvailable()) {
+                    SwingUtilities.invokeLater(() -> {
+                        new UpdateDialog(this, updateConfig).setVisible(true);
+                    });
+                } else if (userInitiated) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this,
+                                "You are running the latest version!",
+                                "No Updates Available",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                }
+            } catch (Exception e) {
+                if (userInitiated) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this,
+                                "Failed to check for updates: " + e.getMessage(),
+                                "Update Check Failed",
+                                JOptionPane.WARNING_MESSAGE);
+                    });
+                }
+            }
+        }).start();
+    }
+
+    private void showAboutDialog() {
+        String aboutText =
+                "<html><center>" +
+                        "<h2>Halo Server Manager</h2>" +
+                        "<p>Version: 1.0.0</p>" +
+                        "<p>© 2025 Jericho Crosby (Chalwk)</p>" +
+                        "<p>All rights reserved.</p>" +
+                        "<br>" +
+                        "<p>Manage Halo PC and Halo CE dedicated servers</p>" +
+                        "<p>with an easy-to-use graphical interface.</p>" +
+                        "</center></html>";
+
+        JOptionPane.showMessageDialog(this, aboutText, "About", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void loadPreviousConfigurations() {
@@ -113,5 +193,34 @@ public class MainFrame extends JFrame {
 
     public PreferencesManager getPreferencesManager() {
         return preferencesManager;
+    }
+
+    private class UpdateActionListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            updateMenuItem.setEnabled(false);
+
+            // Show checking dialog
+            JDialog checkingDialog = new JDialog(MainFrame.this, "Checking for Updates", true);
+            checkingDialog.setLayout(new BorderLayout());
+            checkingDialog.add(new JLabel("Checking for updates...", JLabel.CENTER), BorderLayout.CENTER);
+            checkingDialog.setSize(200, 100);
+            checkingDialog.setLocationRelativeTo(MainFrame.this);
+
+            Timer timer = new Timer(100, evt -> {
+                checkingDialog.setVisible(true);
+            });
+            timer.setRepeats(false);
+            timer.start();
+
+            new Thread(() -> {
+                checkForUpdates(true);
+
+                SwingUtilities.invokeLater(() -> {
+                    checkingDialog.dispose();
+                    updateMenuItem.setEnabled(true);
+                });
+            }).start();
+        }
     }
 }

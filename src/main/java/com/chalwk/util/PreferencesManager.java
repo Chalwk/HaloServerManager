@@ -36,4 +36,29 @@ public class PreferencesManager {
             e.printStackTrace();
         }
     }
+
+    public void setUpdatePreference(String key, String value) {
+        properties.setProperty("update." + key, value);
+        save();
+    }
+
+    public String getUpdatePreference(String key, String defaultValue) {
+        return properties.getProperty("update." + key, defaultValue);
+    }
+
+    public boolean getAutoUpdateEnabled() {
+        return Boolean.parseBoolean(getUpdatePreference("autoCheck", "true"));
+    }
+
+    public void setAutoUpdateEnabled(boolean enabled) {
+        setUpdatePreference("autoCheck", String.valueOf(enabled));
+    }
+
+    public String getSkippedVersion() {
+        return getUpdatePreference("skippedVersion", "");
+    }
+
+    public void setSkippedVersion(String version) {
+        setUpdatePreference("skippedVersion", version);
+    }
 }
