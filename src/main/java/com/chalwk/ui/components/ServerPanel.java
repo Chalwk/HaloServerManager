@@ -63,14 +63,17 @@ public class ServerPanel extends JPanel {
         downloadButton = new JButton("Download & Install");
         launchButton = new JButton("Launch Server");
         browseButton = new JButton("Browse Installation Directory");
+        JButton refreshButton = new JButton("Refresh Files");
 
         downloadButton.addActionListener(e -> downloadServer());
         launchButton.addActionListener(e -> launchServer());
         browseButton.addActionListener(e -> browseFiles());
+        refreshButton.addActionListener(e -> refreshFileTree());
 
         panel.add(downloadButton);
         panel.add(launchButton);
         panel.add(browseButton);
+        panel.add(refreshButton);
 
         return panel;
     }
@@ -185,7 +188,7 @@ public class ServerPanel extends JPanel {
         parent.refreshServerStatus();
     }
 
-    private void refreshFileTree() {
+    public void refreshFileTree() {
         if (serverConfig != null && serverConfig.isInstalled()) {
             File serverDir = serverConfig.getServerDirectory();
             if (serverDir.exists() && serverDir.isDirectory()) {

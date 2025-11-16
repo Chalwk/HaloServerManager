@@ -3,7 +3,6 @@ package com.chalwk.service;
 import com.chalwk.model.ScriptCategory;
 import com.chalwk.model.ScriptMetadata;
 import org.json.JSONObject;
-import org.json.JSONArray;
 
 import javax.swing.*;
 import java.io.BufferedReader;

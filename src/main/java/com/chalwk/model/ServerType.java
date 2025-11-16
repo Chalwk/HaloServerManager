@@ -14,7 +14,15 @@ public enum ServerType {
         this.downloadUrl = downloadUrl;
     }
 
-    public String getDisplayName() { return displayName; }
-    public String getFolderName() { return folderName; }
-    public String getDownloadUrl() { return downloadUrl; }
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getFolderName() {
+        return folderName;
+    }
+
+    public String getDownloadUrl() {
+        return downloadUrl;
+    }
 }

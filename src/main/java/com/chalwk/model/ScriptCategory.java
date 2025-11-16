@@ -13,6 +13,11 @@ public enum ScriptCategory {
         this.folderName = folderName;
     }
 
-    public String getDisplayName() { return displayName; }
-    public String getFolderName() { return folderName; }
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getFolderName() {
+        return folderName;
+    }
 }

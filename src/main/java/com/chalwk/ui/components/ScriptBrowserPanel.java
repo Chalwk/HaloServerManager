@@ -15,8 +15,10 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ScriptBrowserPanel extends JPanel {
@@ -39,6 +41,19 @@ public class ScriptBrowserPanel extends JPanel {
         loadScripts();
     }
 
+    private static String getString(ScriptMetadata script, File luaFolder) {
+        String scriptNameWithoutExtension = script.getFilename().replace(".lua", "");
+        String initFilePath = new File(luaFolder.getParentFile().getParentFile(), "sapp/init.txt").getAbsolutePath();
+
+        return "Script '" + script.getTitle() + "' installed successfully!\n\n" +
+                "Location: " + new File(luaFolder, script.getFilename()).getAbsolutePath() + "\n\n" +
+                "To enable this script, add the following line to:\n" +
+                initFilePath + "\n\n" +
+                "Add this line:\n" +
+                "lua_load \"" + scriptNameWithoutExtension + "\"\n\n" +
+                "You can edit this file directly in the File Browser tab.";
+    }
+
     private void initializeUI() {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -59,6 +74,13 @@ public class ScriptBrowserPanel extends JPanel {
         // Server selection
         panel.add(new JLabel("Install to:"));
         serverComboBox = new JComboBox<>(ServerType.values());
+
+        // Set preferred size to ensure full text is visible
+        Dimension comboBoxSize = new Dimension(120, serverComboBox.getPreferredSize().height);
+        serverComboBox.setPreferredSize(comboBoxSize);
+        serverComboBox.setMinimumSize(comboBoxSize);
+        serverComboBox.setMaximumSize(comboBoxSize);
+
         panel.add(serverComboBox);
 
         // Category filter
@@ -189,6 +211,46 @@ public class ScriptBrowserPanel extends JPanel {
         viewOnGitHubButton.setEnabled(false);
     }
 
+    private ServerConfig getServerConfig(ServerType serverType) {
+        // This would need to be implemented to get the server config from MainFrame
+        // For now, we'll use a simple approach
+        String installPath = parent.getPreferencesManager().getInstallationPath(serverType.name());
+        if (installPath != null) {
+            File installDir = new File(installPath);
+            return ServerService.detectServerConfig(serverType, installDir);
+        }
+        return null;
+    }
+
+    private void installScript(ScriptMetadata script, File luaFolder) {
+        new Thread(() -> {
+            SwingUtilities.invokeLater(() -> {
+                installButton.setEnabled(false);
+                statusLabel.setText("Downloading " + script.getFilename() + "...");
+                progressBar.setValue(0);
+            });
+
+            boolean success = ScriptService.downloadScript(script, luaFolder, progressBar, statusLabel);
+
+            SwingUtilities.invokeLater(() -> {
+                installButton.setEnabled(true);
+                if (success) {
+                    statusLabel.setText("Successfully installed " + script.getFilename());
+
+                    // Refresh the file tree in the server panel
+                    parent.refreshFileTrees();
+
+                    // Show instructions for loading the script
+                    String message = getString(script, luaFolder);
+
+                    JOptionPane.showMessageDialog(ScriptBrowserPanel.this,
+                            message,
+                            "Installation Complete - Next Steps", JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+        }).start();
+    }
+
     private class ScriptListRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index,
@@ -283,39 +345,5 @@ public class ScriptBrowserPanel extends JPanel {
                 }
             }
         }
-    }
-
-    private ServerConfig getServerConfig(ServerType serverType) {
-        // This would need to be implemented to get the server config from MainFrame
-        // For now, we'll use a simple approach
-        String installPath = parent.getPreferencesManager().getInstallationPath(serverType.name());
-        if (installPath != null) {
-            File installDir = new File(installPath);
-            return ServerService.detectServerConfig(serverType, installDir);
-        }
-        return null;
-    }
-
-    private void installScript(ScriptMetadata script, File luaFolder) {
-        new Thread(() -> {
-            SwingUtilities.invokeLater(() -> {
-                installButton.setEnabled(false);
-                statusLabel.setText("Downloading " + script.getFilename() + "...");
-                progressBar.setValue(0);
-            });
-
-            boolean success = ScriptService.downloadScript(script, luaFolder, progressBar, statusLabel);
-
-            SwingUtilities.invokeLater(() -> {
-                installButton.setEnabled(true);
-                if (success) {
-                    statusLabel.setText("Successfully installed " + script.getFilename());
-                    JOptionPane.showMessageDialog(ScriptBrowserPanel.this,
-                            "Script '" + script.getTitle() + "' installed successfully!\n" +
-                                    "Location: " + new File(luaFolder, script.getFilename()).getAbsolutePath(),
-                            "Installation Complete", JOptionPane.INFORMATION_MESSAGE);
-                }
-            });
-        }).start();
     }
 }

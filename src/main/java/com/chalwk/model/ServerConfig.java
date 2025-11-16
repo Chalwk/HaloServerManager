@@ -14,14 +14,29 @@ public class ServerConfig {
     }
 
     // Getters and setters
-    public ServerType getServerType() { return serverType; }
-    public void setServerType(ServerType serverType) { this.serverType = serverType; }
+    public ServerType getServerType() {
+        return serverType;
+    }
 
-    public File getInstallPath() { return installPath; }
-    public void setInstallPath(File installPath) { this.installPath = installPath; }
+    public void setServerType(ServerType serverType) {
+        this.serverType = serverType;
+    }
 
-    public boolean isInstalled() { return installed; }
-    public void setInstalled(boolean installed) { this.installed = installed; }
+    public File getInstallPath() {
+        return installPath;
+    }
+
+    public void setInstallPath(File installPath) {
+        this.installPath = installPath;
+    }
+
+    public boolean isInstalled() {
+        return installed;
+    }
+
+    public void setInstalled(boolean installed) {
+        this.installed = installed;
+    }
 
     public File getServerDirectory() {
         return new File(installPath, serverType.getFolderName());

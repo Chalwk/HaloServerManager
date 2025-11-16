@@ -1,6 +1,7 @@
 package com.chalwk;
 
 import com.chalwk.ui.MainFrame;
+
 import javax.swing.*;
 
 public class HaloServerManager {

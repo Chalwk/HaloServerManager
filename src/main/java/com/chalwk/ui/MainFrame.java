@@ -11,15 +11,20 @@ import java.awt.*;
 import java.io.File;
 
 public class MainFrame extends JFrame {
+    private final PreferencesManager preferencesManager;
     private ServerPanel hpcPanel;
     private ServerPanel hcePanel;
     private ScriptBrowserPanel scriptBrowserPanel;
-    private final PreferencesManager preferencesManager;
 
     public MainFrame() {
         preferencesManager = new PreferencesManager();
         initializeUI();
         loadPreviousConfigurations();
+    }
+
+    public void refreshFileTrees() {
+        hpcPanel.refreshFileTree();
+        hcePanel.refreshFileTree();
     }
 
     private void initializeUI() {

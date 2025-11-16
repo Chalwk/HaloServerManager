@@ -1,12 +1,10 @@
 package com.chalwk.service;
 
-import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 
 public class FileService {
@@ -65,21 +63,6 @@ public class FileService {
         Files.writeString(file.toPath(), content);
     }
 
-    public static class FileNode {
-        private File file;
-
-        public FileNode(File file) {
-            this.file = file;
-        }
-
-        public File getFile() { return file; }
-
-        @Override
-        public String toString() {
-            return file.getName();
-        }
-    }
-
     public static File getFileFromTreePath(TreePath path) {
         if (path == null) return null;
 
@@ -91,5 +74,22 @@ public class FileService {
             }
         }
         return null;
+    }
+
+    public static class FileNode {
+        private File file;
+
+        public FileNode(File file) {
+            this.file = file;
+        }
+
+        public File getFile() {
+            return file;
+        }
+
+        @Override
+        public String toString() {
+            return file.getName();
+        }
     }
 }
