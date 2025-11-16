@@ -15,6 +15,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,6 +36,7 @@ public class ScriptBrowserPanel extends JPanel {
     private JButton installButton;
     private JButton viewOnGitHubButton;
     private JComboBox<ServerType> serverComboBox;
+    private JButton reportBugButton;
 
     public ScriptBrowserPanel(MainFrame parent) {
         this.parent = parent;
@@ -126,15 +129,19 @@ public class ScriptBrowserPanel extends JPanel {
         JPanel buttonPanel = new JPanel(new FlowLayout());
         installButton = new JButton("Install Script");
         viewOnGitHubButton = new JButton("View on GitHub");
+        reportBugButton = new JButton("Report Bug");
 
         installButton.setEnabled(false);
         viewOnGitHubButton.setEnabled(false);
+        reportBugButton.setEnabled(false);
 
         installButton.addActionListener(new InstallButtonListener());
         viewOnGitHubButton.addActionListener(new ViewOnGitHubListener());
+        reportBugButton.addActionListener(new ReportBugListener());
 
         buttonPanel.add(installButton);
         buttonPanel.add(viewOnGitHubButton);
+        buttonPanel.add(reportBugButton);
 
         rightPanel.add(descriptionScrollPane, BorderLayout.CENTER);
         rightPanel.add(buttonPanel, BorderLayout.SOUTH);
@@ -151,6 +158,7 @@ public class ScriptBrowserPanel extends JPanel {
         statusLabel = new JLabel("Loading scripts from GitHub...");
         progressBar = new JProgressBar();
         progressBar.setStringPainted(true);
+        progressBar.setVisible(false);
 
         panel.add(statusLabel, BorderLayout.NORTH);
         panel.add(progressBar, BorderLayout.CENTER);
@@ -228,6 +236,7 @@ public class ScriptBrowserPanel extends JPanel {
             SwingUtilities.invokeLater(() -> {
                 installButton.setEnabled(false);
                 statusLabel.setText("Downloading " + script.getFilename() + "...");
+                progressBar.setVisible(true);
                 progressBar.setValue(0);
             });
 
@@ -235,6 +244,7 @@ public class ScriptBrowserPanel extends JPanel {
 
             SwingUtilities.invokeLater(() -> {
                 installButton.setEnabled(true);
+                progressBar.setVisible(false);
                 if (success) {
                     statusLabel.setText("Successfully installed " + script.getFilename());
 
@@ -278,10 +288,12 @@ public class ScriptBrowserPanel extends JPanel {
                 descriptionArea.setText(buildDescriptionText(selectedScript));
                 installButton.setEnabled(true);
                 viewOnGitHubButton.setEnabled(true);
+                reportBugButton.setEnabled(true);
             } else {
                 descriptionArea.setText("");
                 installButton.setEnabled(false);
                 viewOnGitHubButton.setEnabled(false);
+                reportBugButton.setEnabled(false);
             }
         }
 
@@ -292,6 +304,59 @@ public class ScriptBrowserPanel extends JPanel {
                     "Description:\n" + script.getDescription();
         }
     }
+
+    private class ReportBugListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            ScriptMetadata selectedScript = scriptList.getSelectedValue();
+            if (selectedScript != null) {
+                try {
+
+                    String fileName = selectedScript.getFilename();
+                    String body = getString(selectedScript, fileName);
+
+                    String issueTitle = URLEncoder.encode("Bug Report: " + fileName, StandardCharsets.UTF_8);
+                    String issueBody = URLEncoder.encode(body, StandardCharsets.UTF_8);
+
+                    String githubUrl = "https://github.com/Chalwk/HALO-SCRIPT-PROJECTS/issues/new?"
+                            + "title=" + issueTitle
+                            + "&body=" + issueBody
+                            + "&labels=bug";
+
+                    Desktop.getDesktop().browse(new java.net.URI(githubUrl));
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(ScriptBrowserPanel.this,
+                            "Failed to open bug report page: " + ex.getMessage(),
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+
+        private String getString(ScriptMetadata selectedScript, String fileName) {
+            String category = selectedScript.getCategory().getDisplayName();
+            String scriptURL = selectedScript.getGitHubUrl();
+
+            // Build clean Markdown
+            return "**Script:** " + selectedScript.getTitle() + "\n" +
+                    "**Category:** " + category + "\n" +
+                    "**Filename:** " + fileName + "\n" +
+                    "**GitHub URL:** " + scriptURL + "\n\n" +
+                    "## Bug Description\n" +
+                    "Please describe the bug you encountered:\n\n" +
+                    "## Steps to Reproduce\n" +
+                    "1. \n2. \n3. \n\n" +
+                    "## Expected Behavior\n" +
+                    "What should happen?\n\n" +
+                    "## Actual Behavior\n" +
+                    "What actually happens?\n\n" +
+                    "## Additional Context\n" +
+                    "Add any other context about the problem here.\n\n" +
+                    "---\n" +
+                    "*Reported via Halo Server Manager*";
+        }
+    }
+
 
     private class InstallButtonListener implements ActionListener {
         @Override

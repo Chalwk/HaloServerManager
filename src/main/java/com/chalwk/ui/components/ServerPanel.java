@@ -111,6 +111,7 @@ public class ServerPanel extends JPanel {
         statusLabel = new JLabel("Please select an installation directory");
         progressBar = new JProgressBar(0, 100);
         progressBar.setStringPainted(true);
+        progressBar.setVisible(false);
 
         panel.add(statusLabel, BorderLayout.NORTH);
         panel.add(progressBar, BorderLayout.CENTER);
@@ -132,6 +133,8 @@ public class ServerPanel extends JPanel {
             SwingUtilities.invokeLater(() -> {
                 downloadButton.setEnabled(false);
                 statusLabel.setText("Starting download...");
+                progressBar.setVisible(true);
+                progressBar.setValue(0);
             });
 
             boolean success = DownloadService.downloadAndExtract(
@@ -139,6 +142,7 @@ public class ServerPanel extends JPanel {
 
             SwingUtilities.invokeLater(() -> {
                 downloadButton.setEnabled(true);
+                progressBar.setVisible(false);
                 if (success) {
                     serverConfig.setInstalled(true);
 
