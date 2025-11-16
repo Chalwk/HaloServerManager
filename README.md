@@ -107,22 +107,24 @@ HaloServerManager/
 ├── src/main/java/com/chalwk/
 │   ├── HaloServerManager.java          # Main application entry point
 │   ├── model/                          # Data models
-│   │   ├── ServerType.java
-│   │   ├── ServerConfig.java
 │   │   ├── ScriptCategory.java
 │   │   └── ScriptMetadata.java
-│   ├── ui/                             # User interface components
-│   │   ├── MainFrame.java
-│   │   ├── FileEditorDialog.java
-│   │   └── components/
-│   │       ├── ServerPanel.java
-│   │       ├── ScriptBrowserPanel.java
-│   │       └── FileTreePanel.java
+│   │   ├── ServerConfig.java
+│   │   ├── ServerType.java
+│   │   ├── UpdateConfig.java
 │   ├── service/                        # Business logic services
 │   │   ├── DownloadService.java
 │   │   ├── FileService.java
-│   │   ├── ServerService.java
 │   │   └── ScriptService.java
+│   │   ├── ServerService.java
+│   │   ├── UpdateService.java
+│   ├── ui/                             # User interface components
+│   │   ├── FileEditorDialog.java
+│   │   ├── MainFrame.java
+│   │   ├── UpdateDialog.java
+│   │   └── components/
+│   │       ├── ScriptBrowserPanel.java
+│   │       ├── ServerPanel.java
 │   └── util/
 │       └── PreferencesManager.java     # Configuration persistence
 ├── pom.xml                            # Maven build configuration
