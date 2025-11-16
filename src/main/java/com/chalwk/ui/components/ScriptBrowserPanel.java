@@ -213,7 +213,8 @@ public class ScriptBrowserPanel extends JPanel {
 
     private ServerConfig getServerConfig(ServerType serverType) {
         // This would need to be implemented to get the server config from MainFrame
-        // For now, we'll use a simple approach
+        // For now, we'll use a simple approach.
+        // I can't be bothered to implement this right now.
         String installPath = parent.getPreferencesManager().getInstallationPath(serverType.name());
         if (installPath != null) {
             File installDir = new File(installPath);

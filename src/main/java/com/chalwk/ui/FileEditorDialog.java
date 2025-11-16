@@ -112,7 +112,7 @@ public class FileEditorDialog extends JDialog {
         StyleConstants.setTabSet(attributes, tabSet);
         luaTextPane.setParagraphAttributes(attributes, false);
 
-        // Add document listener for real-time syntax highlighting
+        // Document listener for real-time syntax highlighting
         luaTextPane.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
