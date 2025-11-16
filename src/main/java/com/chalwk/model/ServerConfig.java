@@ -3,8 +3,8 @@ package com.chalwk.model;
 import java.io.File;
 
 public class ServerConfig {
-    private ServerType serverType;
-    private File installPath;
+    private final ServerType serverType;
+    private final File installPath;
     private boolean installed;
 
     public ServerConfig(ServerType serverType, File installPath, boolean installed) {
@@ -14,20 +14,8 @@ public class ServerConfig {
     }
 
     // Getters and setters
-    public ServerType getServerType() {
-        return serverType;
-    }
-
-    public void setServerType(ServerType serverType) {
-        this.serverType = serverType;
-    }
-
     public File getInstallPath() {
         return installPath;
-    }
-
-    public void setInstallPath(File installPath) {
-        this.installPath = installPath;
     }
 
     public boolean isInstalled() {

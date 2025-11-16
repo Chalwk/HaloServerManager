@@ -19,16 +19,14 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 
 public class ServerPanel extends JPanel {
-    private MainFrame parent;
-    private ServerType serverType;
+    private final MainFrame parent;
+    private final ServerType serverType;
+    private final PreferencesManager preferencesManager;
     private ServerConfig serverConfig;
-    private PreferencesManager preferencesManager;
-
     private JLabel statusLabel;
     private JProgressBar progressBar;
     private JButton downloadButton;
     private JButton launchButton;
-    private JButton browseButton;
     private JTree fileTree;
 
     public ServerPanel(ServerType serverType, MainFrame parent, PreferencesManager preferencesManager) {
@@ -62,7 +60,7 @@ public class ServerPanel extends JPanel {
 
         downloadButton = new JButton("Download & Install");
         launchButton = new JButton("Launch Server");
-        browseButton = new JButton("Browse Installation Directory");
+        JButton browseButton = new JButton("Browse Installation Directory");
         JButton refreshButton = new JButton("Refresh Files");
 
         downloadButton.addActionListener(e -> downloadServer());

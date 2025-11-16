@@ -5,7 +5,7 @@ import java.util.Properties;
 
 public class PreferencesManager {
     private static final String CONFIG_FILE = "halo_server_manager.properties";
-    private Properties properties;
+    private final Properties properties;
 
     public PreferencesManager() {
         properties = new Properties();

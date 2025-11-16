@@ -17,13 +17,12 @@ import java.util.List;
 public class ScriptService {
 
     private static final String METADATA_URL = "https://raw.githubusercontent.com/Chalwk/HALO-SCRIPT-PROJECTS/master/metadata.json";
-    private static final String BASE_SCRIPT_URL = "https://raw.githubusercontent.com/Chalwk/HALO-SCRIPT-PROJECTS/master/sapp/";
 
     public static List<ScriptMetadata> loadScriptsMetadata() {
         List<ScriptMetadata> scripts = new ArrayList<>();
 
         try {
-            String jsonContent = fetchUrlContent(METADATA_URL);
+            String jsonContent = fetchUrlContent();
             if (jsonContent != null) {
                 JSONObject metadata = new JSONObject(jsonContent);
                 parseCategoryScripts(metadata, "attractive", ScriptCategory.ATTRACTIVE, scripts);
@@ -135,9 +134,9 @@ public class ScriptService {
         }
     }
 
-    private static String fetchUrlContent(String urlString) {
+    private static String fetchUrlContent() {
         try {
-            URL url = new URL(urlString);
+            URL url = new URL(ScriptService.METADATA_URL);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
 

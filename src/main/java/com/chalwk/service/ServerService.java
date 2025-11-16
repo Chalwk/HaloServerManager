@@ -18,28 +18,6 @@ public class ServerService {
                 runBat.exists() && runBat.isFile();
     }
 
-    public static boolean verifyServerStructure(ServerConfig config) {
-        if (!isServerInstalled(config)) return false;
-
-        File serverDir = config.getServerDirectory();
-
-        // Check for essential directories
-        String[] essentialDirs = {
-                "cg/sapp/lua",
-                "maps",
-                "sapp"
-        };
-
-        for (String dir : essentialDirs) {
-            File essentialDir = new File(serverDir, dir);
-            if (!essentialDir.exists() || !essentialDir.isDirectory()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     public static void launchServer(ServerConfig config) {
         if (!isServerInstalled(config)) {
             throw new IllegalStateException("Server is not installed");

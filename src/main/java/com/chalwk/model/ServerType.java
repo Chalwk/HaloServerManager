@@ -1,6 +1,7 @@
 package com.chalwk.model;
 
 public enum ServerType {
+
     HPC("Halo PC", "HPC_Server", "https://github.com/Chalwk/HALO-SCRIPT-PROJECTS/releases/download/ReadyToGo/HPC_Server.zip"),
     HCE("Halo CE", "HCE_Server", "https://github.com/Chalwk/HALO-SCRIPT-PROJECTS/releases/download/ReadyToGo/HCE_Server.zip");
 

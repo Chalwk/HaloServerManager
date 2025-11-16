@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ScriptBrowserPanel extends JPanel {
-    private MainFrame parent;
+    private final MainFrame parent;
     private List<ScriptMetadata> allScripts;
     private Map<ScriptCategory, List<ScriptMetadata>> scriptsByCategory;
 
@@ -251,7 +251,7 @@ public class ScriptBrowserPanel extends JPanel {
         }).start();
     }
 
-    private class ScriptListRenderer extends DefaultListCellRenderer {
+    private static class ScriptListRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                       boolean isSelected, boolean cellHasFocus) {
@@ -285,12 +285,10 @@ public class ScriptBrowserPanel extends JPanel {
         }
 
         private String buildDescriptionText(ScriptMetadata script) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("Title: ").append(script.getTitle()).append("\n\n");
-            sb.append("Category: ").append(script.getCategory().getDisplayName()).append("\n\n");
-            sb.append("Filename: ").append(script.getFilename()).append("\n\n");
-            sb.append("Description:\n").append(script.getDescription());
-            return sb.toString();
+            return "Title: " + script.getTitle() + "\n\n" +
+                    "Category: " + script.getCategory().getDisplayName() + "\n\n" +
+                    "Filename: " + script.getFilename() + "\n\n" +
+                    "Description:\n" + script.getDescription();
         }
     }
 
@@ -303,6 +301,7 @@ public class ScriptBrowserPanel extends JPanel {
             if (selectedScript == null) return;
 
             // Get server configuration
+            assert selectedServer != null;
             ServerConfig serverConfig = getServerConfig(selectedServer);
             if (serverConfig == null || !serverConfig.isInstalled()) {
                 JOptionPane.showMessageDialog(ScriptBrowserPanel.this,

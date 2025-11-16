@@ -14,7 +14,6 @@ public class MainFrame extends JFrame {
     private final PreferencesManager preferencesManager;
     private ServerPanel hpcPanel;
     private ServerPanel hcePanel;
-    private ScriptBrowserPanel scriptBrowserPanel;
 
     public MainFrame() {
         preferencesManager = new PreferencesManager();
@@ -43,7 +42,7 @@ public class MainFrame extends JFrame {
         hcePanel = new ServerPanel(ServerType.HCE, this, preferencesManager);
 
         // Create script browser panel
-        scriptBrowserPanel = new ScriptBrowserPanel(this);
+        ScriptBrowserPanel scriptBrowserPanel = new ScriptBrowserPanel(this);
 
         tabbedPane.addTab("Halo PC Server", hpcPanel);
         tabbedPane.addTab("Halo CE Server", hcePanel);

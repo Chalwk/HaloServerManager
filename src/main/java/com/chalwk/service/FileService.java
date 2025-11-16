@@ -50,9 +50,7 @@ public class FileService {
         if (name.equals("run.bat")) return true;
         if (name.endsWith(".txt") &&
                 (path.contains("sapp") || path.contains("cg"))) return true;
-        if (name.endsWith(".lua") && path.contains("lua")) return true;
-
-        return false;
+        return name.endsWith(".lua") && path.contains("lua");
     }
 
     public static String readFileContent(File file) throws IOException {
@@ -77,7 +75,7 @@ public class FileService {
     }
 
     public static class FileNode {
-        private File file;
+        private final File file;
 
         public FileNode(File file) {
             this.file = file;
