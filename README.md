@@ -10,7 +10,8 @@ and configuration tools.
 ## Overview
 
 Halo Server Manager is a comprehensive desktop application that simplifies the setup, configuration, and management of
-**Halo PC** and **Halo CE** SAPP dedicated servers. It provides an intuitive interface for downloading server files, editing
+**Halo PC** and **Halo CE** SAPP dedicated servers. It provides an intuitive interface for downloading server files,
+editing
 configurations, browsing and installing Lua scripts, and launching your dedicated game servers.
 
 ## Features
@@ -217,11 +218,9 @@ GitHub repository, featuring:
 - Verify GitHub is accessible from your network
 - Ensure you have write permissions to the installation directory
 
-## License
+## [License (MIT)](https://github.com/Chalwk/HaloServerManager/blob/main/LICENSE)
 
 © 2025 Halo Server Manager - Jericho Crosby (Chalwk). All rights reserved.
-
-This software is provided for personal use. Redistribution or commercial use requires explicit permission.
 
 ## Credits
 
