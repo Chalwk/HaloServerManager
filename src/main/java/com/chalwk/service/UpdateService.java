@@ -45,6 +45,7 @@ public class UpdateService {
             }
         } catch (Exception e) {
             System.err.println("Error checking for updates: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return new UpdateConfig(getCurrentVersion(), getCurrentVersion(), "", "Unable to check for updates.");
@@ -68,10 +69,14 @@ public class UpdateService {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+            connection.setRequestProperty("User-Agent", "HaloServerManager");
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(10000);
 
-            if (connection.getResponseCode() == 200) {
+            int responseCode = connection.getResponseCode();
+            System.out.println("GitHub API Response Code: " + responseCode);
+
+            if (responseCode == 200) {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(connection.getInputStream()))) {
 
@@ -83,26 +88,44 @@ public class UpdateService {
 
                     return new JSONObject(content.toString());
                 }
+            } else {
+                // Read error stream for more info
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(connection.getErrorStream()))) {
+                    StringBuilder errorContent = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        errorContent.append(line);
+                    }
+                    System.err.println("GitHub API Error: " + errorContent.toString());
+                }
             }
         } catch (Exception e) {
             System.err.println("Failed to fetch release info: " + e.getMessage());
+            e.printStackTrace();
         }
         return null;
     }
 
     private static String getDownloadUrl(JSONObject release) {
         try {
-            // Look for the JAR asset
             var assets = release.getJSONArray("assets");
             for (int i = 0; i < assets.length(); i++) {
                 JSONObject asset = assets.getJSONObject(i);
                 String name = asset.getString("name");
-                if (name.endsWith(".jar") && !name.contains("sources") && !name.contains("javadoc")) {
+                if (name.toLowerCase().endsWith(".exe") &&
+                        name.toLowerCase().contains("haloservermanager")) {
                     return asset.getString("browser_download_url");
                 }
             }
+
+            // Fallback: return first asset if no EXE found
+            if (!assets.isEmpty()) {
+                return assets.getJSONObject(0).getString("browser_download_url");
+            }
         } catch (Exception e) {
             System.err.println("Error finding download URL: " + e.getMessage());
+            e.printStackTrace();
         }
         return "";
     }
@@ -125,6 +148,7 @@ public class UpdateService {
             URL url = new URL(downloadUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent", "HaloServerManager");
 
             int responseCode = connection.getResponseCode();
             if (responseCode != HttpURLConnection.HTTP_OK) {
@@ -162,7 +186,7 @@ public class UpdateService {
 
             connection.disconnect();
 
-            // Rename temp file to final JAR
+            // Rename temp file to final EXE
             File finalFile = new File(fileName);
             Files.move(tempFile.toPath(), finalFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
@@ -176,6 +200,7 @@ public class UpdateService {
         } catch (Exception e) {
             SwingUtilities.invokeLater(() ->
                     statusLabel.setText("Download error: " + e.getMessage()));
+            e.printStackTrace();
             return false;
         }
     }
@@ -184,9 +209,9 @@ public class UpdateService {
         return url.substring(url.lastIndexOf("/") + 1);
     }
 
-    public static void createUpdateScript(File newJarFile) {
-        // Create a batch script that will replace the current JAR and restart
-        String scriptContent = createBatchScript(newJarFile.getName());
+    public static void createUpdateScript(File newExeFile) {
+        // Create a batch script that will replace the current EXE and restart
+        String scriptContent = createBatchScript(newExeFile.getName());
 
         try {
             File scriptFile = new File("update.bat");
@@ -207,27 +232,58 @@ public class UpdateService {
         }
     }
 
-    private static String createBatchScript(String newJarName) {
+    private static String createBatchScript(String newExeName) {
         return "@echo off\n" +
+                "chcp 65001 >nul\n" +
+                "echo ============================================\n" +
+                "echo    Halo Server Manager - Auto Updater\n" +
+                "echo ============================================\n" +
+                "echo.\n" +
                 "echo Updating Halo Server Manager...\n" +
+                "echo Please wait while we install the new version.\n" +
+                "echo.\n" +
                 "timeout /t 3 /nobreak >nul\n" +
                 "\n" +
-                ":loop\n" +
-                "tasklist /FI \"IMAGENAME eq java.exe\" /FO CSV | findstr /I \"HaloServerManager\" >nul\n" +
+                ":wait_for_close\n" +
+                "echo Waiting for Halo Server Manager to close...\n" +
+                "tasklist /FI \"IMAGENAME eq HaloServerManager*.exe\" 2>nul | find /I \"HaloServerManager\" >nul\n" +
                 "if %errorlevel% == 0 (\n" +
-                "    echo Waiting for current application to close...\n" +
-                "    timeout /t 1 /nobreak >nul\n" +
-                "    goto loop\n" +
+                "    timeout /t 2 /nobreak >nul\n" +
+                "    goto wait_for_close\n" +
                 ")\n" +
                 "\n" +
-                "echo Replacing JAR file...\n" +
-                "move /Y \"" + newJarName + "\" \"HaloServerManager.jar\"\n" +
+                "echo.\n" +
+                "echo Installing new version...\n" +
                 "\n" +
-                "echo Starting updated application...\n" +
-                "start \"\" \"HaloServerManager.jar\"\n" +
+                "REM Delete old version if it exists\n" +
+                "if exist \"HaloServerManager.exe\" (\n" +
+                "    del \"HaloServerManager.exe\"\n" +
+                ")\n" +
                 "\n" +
-                "echo Cleaning up...\n" +
+                "REM Rename new version\n" +
+                "if exist \"" + newExeName + "\" (\n" +
+                "    ren \"" + newExeName + "\" \"HaloServerManager.exe\"\n" +
+                "    echo Update successful!\n" +
+                ") else (\n" +
+                "    echo Error: New version file not found!\n" +
+                "    pause\n" +
+                "    exit /b 1\n" +
+                ")\n" +
+                "\n" +
+                "echo.\n" +
+                "echo Starting Halo Server Manager...\n" +
+                "timeout /t 2 /nobreak >nul\n" +
+                "\n" +
+                "REM Start the updated application\n" +
+                "start \"\" \"HaloServerManager.exe\"\n" +
+                "\n" +
+                "echo.\n" +
+                "echo Update completed successfully!\n" +
+                "echo This window will close automatically...\n" +
+                "timeout /t 3 /nobreak >nul\n" +
+                "\n" +
+                "REM Clean up - delete this batch file\n" +
                 "del \"%~f0\"\n" +
-                "echo Update complete!\n";
+                "exit\n";
     }
 }

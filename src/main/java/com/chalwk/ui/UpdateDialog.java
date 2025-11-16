@@ -38,21 +38,7 @@ public class UpdateDialog extends JDialog {
         setResizable(false);
 
         // Header
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        headerPanel.setBackground(new Color(70, 130, 180));
-
-        JLabel titleLabel = new JLabel("Update Available!");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        titleLabel.setForeground(Color.WHITE);
-        headerPanel.add(titleLabel, BorderLayout.NORTH);
-
-        JLabel versionLabel = new JLabel(
-                "Current: v" + updateConfig.getCurrentVersion() +
-                        " → Latest: v" + updateConfig.getLatestVersion());
-        versionLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        versionLabel.setForeground(Color.WHITE);
-        headerPanel.add(versionLabel, BorderLayout.SOUTH);
+        JPanel headerPanel = getJPanel();
 
         add(headerPanel, BorderLayout.NORTH);
 
@@ -109,11 +95,34 @@ public class UpdateDialog extends JDialog {
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
+    private JPanel getJPanel() {
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        headerPanel.setBackground(new Color(70, 130, 180));
+
+        JLabel titleLabel = new JLabel("Update Available!");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        titleLabel.setForeground(Color.WHITE);
+        headerPanel.add(titleLabel, BorderLayout.NORTH);
+
+        JLabel versionLabel = new JLabel(
+                "Current: v" + updateConfig.getCurrentVersion() +
+                        " → Latest: v" + updateConfig.getLatestVersion());
+        versionLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        versionLabel.setForeground(Color.WHITE);
+        headerPanel.add(versionLabel, BorderLayout.SOUTH);
+        return headerPanel;
+    }
+
     private class InstallButtonListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             installButton.setEnabled(false);
             laterButton.setEnabled(false);
+
+            // Show debug info
+            System.out.println("Starting update download...");
+            System.out.println("Download URL: " + updateConfig.getDownloadUrl());
 
             // Show progress panel
             ((JPanel) getContentPane().getComponent(1)).getComponent(1).setVisible(true);
@@ -125,21 +134,24 @@ public class UpdateDialog extends JDialog {
 
                 SwingUtilities.invokeLater(() -> {
                     if (success) {
+                        System.out.println("Update downloaded successfully!");
                         int result = JOptionPane.showConfirmDialog(UpdateDialog.this,
                                 "Update downloaded successfully! The application will now restart to complete the update.\n\n" +
                                         "Click OK to continue, or Cancel to install later.",
                                 "Update Ready", JOptionPane.OK_CANCEL_OPTION);
 
                         if (result == JOptionPane.OK_OPTION) {
-                            UpdateService.createUpdateScript(new java.io.File(
-                                    updateConfig.getDownloadUrl().substring(
-                                            updateConfig.getDownloadUrl().lastIndexOf("/") + 1)));
+                            String fileName = updateConfig.getDownloadUrl().substring(
+                                    updateConfig.getDownloadUrl().lastIndexOf("/") + 1);
+                            UpdateService.createUpdateScript(new java.io.File(fileName));
                         } else {
                             dispose();
                         }
                     } else {
                         JOptionPane.showMessageDialog(UpdateDialog.this,
-                                "Failed to download update. Please try again later.",
+                                "Failed to download update. Please try again later.\n\n" +
+                                        "You can also download the update manually from:\n" +
+                                        updateConfig.getDownloadUrl(),
                                 "Download Failed", JOptionPane.ERROR_MESSAGE);
                         dispose();
                     }

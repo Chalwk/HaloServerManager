@@ -28,7 +28,6 @@ public class MainFrame extends JFrame {
     private ServerPanel hpcPanel;
     private ServerPanel hcePanel;
     private JMenuItem updateMenuItem;
-    private JMenuItem aboutMenuItem;
 
     public MainFrame() {
         preferencesManager = new PreferencesManager();
@@ -51,7 +50,7 @@ public class MainFrame extends JFrame {
         JMenu helpMenu = new JMenu("Help");
 
         updateMenuItem = new JMenuItem("Check for Updates");
-        aboutMenuItem = new JMenuItem("About");
+        JMenuItem aboutMenuItem = new JMenuItem("About");
 
         updateMenuItem.addActionListener(new UpdateActionListener());
         aboutMenuItem.addActionListener(e -> showAboutDialog());
@@ -99,43 +98,77 @@ public class MainFrame extends JFrame {
     }
 
     private void checkForUpdatesOnStartup() {
-        // Check if we should check for updates on startup (you could make this configurable)
-        boolean checkOnStartup = true; // Could be loaded from preferences
+        // Check if we should check for updates on startup (configurable)
+        boolean checkOnStartup = preferencesManager.getAutoUpdateEnabled();
 
         if (checkOnStartup) {
             // Delay the check to let the UI load first
-            Timer timer = new Timer(3000, e -> checkForUpdates(false));
+            Timer timer = new Timer(3000, e -> {
+                new Thread(() -> {
+                    try {
+                        UpdateConfig updateConfig = UpdateService.checkForUpdates();
+
+                        if (updateConfig.isUpdateAvailable()) {
+                            SwingUtilities.invokeLater(() -> {
+                                new UpdateDialog(this, updateConfig).setVisible(true);
+                            });
+                        } else {
+                            System.out.println("No updates available. Current: " +
+                                    updateConfig.getCurrentVersion() + ", Latest: " +
+                                    updateConfig.getLatestVersion());
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Update check failed: " + ex.getMessage());
+                        // Don't show error to user for automatic checks
+                    }
+                }).start();
+            });
             timer.setRepeats(false);
             timer.start();
         }
     }
 
-    private void checkForUpdates(boolean userInitiated) {
+    private void checkForUpdates() {
+        updateMenuItem.setEnabled(false);
+        final JDialog checkingDialog = new JDialog(this, "Checking for Updates", true);
+
+        SwingUtilities.invokeLater(() -> {
+            checkingDialog.setLayout(new BorderLayout());
+            checkingDialog.add(new JLabel("Checking for updates...", JLabel.CENTER), BorderLayout.CENTER);
+            checkingDialog.setSize(250, 100);
+            checkingDialog.setLocationRelativeTo(this);
+            checkingDialog.setVisible(true);
+        });
+
         new Thread(() -> {
             try {
                 UpdateConfig updateConfig = UpdateService.checkForUpdates();
 
-                if (updateConfig.isUpdateAvailable()) {
-                    SwingUtilities.invokeLater(() -> {
+                SwingUtilities.invokeLater(() -> {
+                    checkingDialog.dispose();
+                    updateMenuItem.setEnabled(true);
+
+                    if (updateConfig.isUpdateAvailable()) {
                         new UpdateDialog(this, updateConfig).setVisible(true);
-                    });
-                } else if (userInitiated) {
-                    SwingUtilities.invokeLater(() -> {
+                    } else {
                         JOptionPane.showMessageDialog(this,
-                                "You are running the latest version!",
+                                "You are running the latest version (v" +
+                                        updateConfig.getCurrentVersion() + ")!",
                                 "No Updates Available",
                                 JOptionPane.INFORMATION_MESSAGE);
-                    });
-                }
+                    }
+                });
             } catch (Exception e) {
-                if (userInitiated) {
-                    SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(this,
-                                "Failed to check for updates: " + e.getMessage(),
-                                "Update Check Failed",
-                                JOptionPane.WARNING_MESSAGE);
-                    });
-                }
+                SwingUtilities.invokeLater(() -> {
+                    checkingDialog.dispose();
+                    updateMenuItem.setEnabled(true);
+
+                    JOptionPane.showMessageDialog(this,
+                            "Failed to check for updates: " + e.getMessage() +
+                                    "\n\nPlease check your internet connection and try again.",
+                            "Update Check Failed",
+                            JOptionPane.WARNING_MESSAGE);
+                });
             }
         }).start();
     }
@@ -223,7 +256,7 @@ public class MainFrame extends JFrame {
             timer.start();
 
             new Thread(() -> {
-                checkForUpdates(true);
+                checkForUpdates();
 
                 SwingUtilities.invokeLater(() -> {
                     checkingDialog.dispose();
