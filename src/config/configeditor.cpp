@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "configeditor.h"
+#include "config/configeditor.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

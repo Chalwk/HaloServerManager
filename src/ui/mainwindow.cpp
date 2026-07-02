@@ -1,13 +1,13 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "mainwindow.h"
-#include "serverinstaller.h"
-#include "servermanager.h"
-#include "serverprocess.h"
-#include "settings.h"
-#include "consolewidget.h"
-#include "configeditor.h"
+#include "config/settings.h"
+#include "config/configeditor.h"
+#include "core/servermanager.h"
+#include "core/serverprocess.h"
+#include "ui/mainwindow.h"
+#include "ui/consolewidget.h"
+#include "util/serverinstaller.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

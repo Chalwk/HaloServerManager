@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "zipunpacker.h"
+#include "util/zipunpacker.h"
 #include <QProcess>
 #include <QDir>
 #include <QDebug>

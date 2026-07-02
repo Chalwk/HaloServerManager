@@ -1,45 +1,33 @@
 cmake_minimum_required(VERSION 3.24)
+
 project(HaloServerManager VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
-set(SOURCES
+add_executable(${PROJECT_NAME} WIN32
     src/main.cpp
-    src/mainwindow.cpp
-    src/serverinstaller.cpp
-    src/servermanager.cpp
-    src/settings.cpp
-    src/zipunpacker.cpp
-    src/serverprocess.cpp
-    src/consolewidget.cpp
-    src/configeditor.cpp
+    src/ui/mainwindow.cpp
+    src/ui/consolewidget.cpp
+    src/core/servermanager.cpp
+    src/core/serverprocess.cpp
+    src/config/settings.cpp
+    src/config/configeditor.cpp
+    src/util/serverinstaller.cpp
+    src/util/zipunpacker.cpp
     resources/resources.qrc
 )
 
-set(HEADERS
-    src/mainwindow.h
-    src/serverinstaller.h
-    src/servermanager.h
-    src/settings.h
-    src/zipunpacker.h
-    src/serverprocess.h
-    src/consolewidget.h
-    src/configeditor.h
-)
-
-add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS})
-
+target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_link_libraries(${PROJECT_NAME} PRIVATE
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        Qt6::Network
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Network
 )
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION .)
@@ -55,4 +43,5 @@ set(CPACK_PACKAGE_VENDOR ${PROJECT_NAME})
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_NSIS_DISPLAY_NAME ${PROJECT_NAME})
 set(CPACK_NSIS_PACKAGE_NAME ${PROJECT_NAME})
+
 include(CPack)

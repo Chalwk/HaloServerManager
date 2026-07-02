@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "servermanager.h"
-#include "serverprocess.h"
-#include "settings.h"
+#include "core/servermanager.h"
+#include "core/serverprocess.h"
+#include "config/settings.h"
 #include <QDebug>
 
 ServerManager::ServerManager(Settings *settings, QObject *parent)

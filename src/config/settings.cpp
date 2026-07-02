@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "settings.h"
+#include "config/settings.h"
 
 #include <QDir>
 #include <QFile>

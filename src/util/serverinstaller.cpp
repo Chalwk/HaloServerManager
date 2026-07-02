@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "serverinstaller.h"
-#include "zipunpacker.h"
+#include "util/serverinstaller.h"
+#include "util/zipunpacker.h"
 
 #include <QDir>
 #include <QFileInfo>

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Jericho Crosby (Chalwk).
 // Licensed under the GPL License.
 
-#include "serverprocess.h"
+#include "core/serverprocess.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QDebug>
