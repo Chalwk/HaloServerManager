@@ -36,8 +36,13 @@ ConsoleWidget::ConsoleWidget(const QString &serverPath, QWidget *parent)
     m_sendButton->setEnabled(false);
     connect(m_sendButton, &QPushButton::clicked, this, &ConsoleWidget::onSendCommand);
 
+    m_clearButton = new QPushButton("Clear", this);
+    m_clearButton->setToolTip("Clear the console log");
+    connect(m_clearButton, &QPushButton::clicked, this, &ConsoleWidget::clear);
+
     inputLayout->addWidget(m_inputLine);
     inputLayout->addWidget(m_sendButton);
+    inputLayout->addWidget(m_clearButton);
     layout->addLayout(inputLayout);
 
     setRunning(false);

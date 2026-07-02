@@ -42,12 +42,15 @@ private slots:
     void onStopServer();
     void onRestartServer();
     void onOpenConfigEditor();
+    void onUninstallServer();
 
     void updateServerStatus();
     void onServerLog(const QString &serverPath, const QString &line, bool isError);
     void onServerStateChanged(const QString &serverPath, bool running);
 
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+
+    void updateInstalledStatus();
 
 private:
     void setupUi();
@@ -67,6 +70,9 @@ private:
     QPushButton *m_browseButton;
     QPushButton *m_installButton;
     QProgressBar *m_downloadProgress;
+
+    QLabel *m_installProgressLabel;
+    QLabel *m_installStatusLabel;
     QLabel *m_statusLabel;
 
     QListWidget *m_serverList;

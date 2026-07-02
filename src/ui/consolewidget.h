@@ -31,6 +31,7 @@ private:
     QPlainTextEdit *m_logView;
     QLineEdit *m_inputLine;
     QPushButton *m_sendButton;
+    QPushButton *m_clearButton;
     QString m_serverPath;
     bool m_running;
 };

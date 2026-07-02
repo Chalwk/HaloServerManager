@@ -36,6 +36,8 @@
 #include <QProgressBar>
 #include <QListWidget>
 #include <QSpinBox>
+#include <QDesktopServices>
+#include <QThread>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_installer(nullptr), m_manager(nullptr), m_settings(new Settings(this))
@@ -50,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(timer, &QTimer::timeout, this, &MainWindow::updateServerStatus);
     timer->start(2000);
     updateServerStatus();
+    updateInstalledStatus();
 }
 
 MainWindow::~MainWindow()
@@ -71,6 +74,10 @@ void MainWindow::setupUi()
     m_serverTypeCombo->addItems({"SAPP_CE", "SAPP_PC"});
     typeLayout->addWidget(new QLabel("Select:"));
     typeLayout->addWidget(m_serverTypeCombo);
+
+    m_installStatusLabel = new QLabel(this);
+    m_installStatusLabel->setIndent(10);
+    typeLayout->addWidget(m_installStatusLabel);
     typeLayout->addStretch();
     installLayout->addWidget(typeGroup);
 
@@ -78,7 +85,6 @@ void MainWindow::setupUi()
     QHBoxLayout *pathLayout = new QHBoxLayout(pathGroup);
     m_installPathEdit = new QLineEdit();
     m_installPathEdit->setReadOnly(true);
-
     m_installPathEdit->setText(QDir::toNativeSeparators("C:/Halo Servers"));
     m_browseButton = new QPushButton("Browse...");
     connect(m_browseButton, &QPushButton::clicked, this, &MainWindow::onBrowseInstallPath);
@@ -95,12 +101,17 @@ void MainWindow::setupUi()
     m_downloadProgress->setVisible(false);
     installLayout->addWidget(m_downloadProgress);
 
-    m_statusLabel = new QLabel();
-    m_statusLabel->setWordWrap(true);
-    installLayout->addWidget(m_statusLabel);
+    m_installProgressLabel = new QLabel();
+    m_installProgressLabel->setWordWrap(true);
+    installLayout->addWidget(m_installProgressLabel);
 
     installLayout->addStretch();
     m_tabWidget->addTab(installTab, "Install");
+
+    connect(m_serverTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::updateInstalledStatus);
+    connect(m_installPathEdit, &QLineEdit::textChanged,
+            this, &MainWindow::updateInstalledStatus);
 
     QWidget *serversTab = new QWidget();
     QHBoxLayout *serversLayout = new QHBoxLayout(serversTab);
@@ -159,6 +170,11 @@ void MainWindow::setupUi()
     m_launchAction->setEnabled(false);
     m_stopAction->setEnabled(false);
     m_restartAction->setEnabled(false);
+
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setTextFormat(Qt::RichText);
+    m_statusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    statusBar()->addPermanentWidget(m_statusLabel, 1);
 }
 
 void MainWindow::loadConfig()
@@ -198,6 +214,7 @@ void MainWindow::onBrowseInstallPath()
     {
         m_installPathEdit->setText(QDir::toNativeSeparators(dir));
         m_installButton->setEnabled(true);
+        updateInstalledStatus();
     }
 }
 
@@ -211,7 +228,7 @@ void MainWindow::onInstallClicked()
     m_installButton->setEnabled(false);
     m_downloadProgress->setVisible(true);
     m_downloadProgress->setValue(0);
-    m_statusLabel->setText("Downloading...");
+    m_installProgressLabel->setText("Downloading...");
 
     if (!m_installer)
     {
@@ -222,9 +239,10 @@ void MainWindow::onInstallClicked()
             m_downloadProgress->setVisible(false);
             m_installButton->setEnabled(!m_installPathEdit->text().isEmpty());
             if (success) {
-                m_statusLabel->setText("Installation completed successfully.");
+                m_installProgressLabel->setText("Installation completed successfully.");
+                updateInstalledStatus();
             } else {
-                m_statusLabel->setText("Installation failed: " + message);
+                m_installProgressLabel->setText("Installation failed: " + message);
             } });
         connect(m_installer, &ServerInstaller::installedPath, this, [this](const QString &path, const QString &type)
                 {
@@ -251,11 +269,17 @@ void MainWindow::refreshServerList()
         QJsonObject obj = val.toObject();
         QString path = obj["path"].toString();
         QString type = obj["type"].toString();
-        QListWidgetItem *item = new QListWidgetItem(QString("%1  [%2]").arg(QDir::toNativeSeparators(path), type));
+        QListWidgetItem *item = new QListWidgetItem(type);
         item->setData(Qt::UserRole, path);
+        item->setData(Qt::UserRole + 1, type);
         m_serverList->addItem(item);
     }
     updateServerListStatus();
+
+    if (m_serverList->count() > 0)
+    {
+        m_serverList->setCurrentRow(0);
+    }
     onServerSelectionChanged();
 }
 
@@ -265,12 +289,14 @@ void MainWindow::updateServerListStatus()
     {
         QListWidgetItem *item = m_serverList->item(i);
         QString path = item->data(Qt::UserRole).toString();
+        QString type = item->data(Qt::UserRole + 1).toString();
         bool running = m_manager && m_manager->isServerRunning(path);
-        item->setText(QString("%1  [%2] %3").arg(QDir::toNativeSeparators(path), running ? "🟢" : "🔴", running ? "RUNNING" : "STOPPED"));
-        if (running)
-            item->setForeground(Qt::darkGreen);
-        else
-            item->setForeground(Qt::red);
+        QString statusText = QString("%1 [%2] %3")
+                                 .arg(type)
+                                 .arg(running ? "🟢" : "🔴")
+                                 .arg(running ? "RUNNING" : "STOPPED");
+        item->setText(statusText);
+        item->setForeground(running ? Qt::darkGreen : Qt::red);
     }
 }
 
@@ -360,6 +386,16 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
         ConfigEditor editor(serverPath, this);
         editor.exec(); });
     form->addRow(editFilesBtn);
+
+    QPushButton *openDirBtn = new QPushButton("Open Server Directory");
+    connect(openDirBtn, &QPushButton::clicked, this, [this, serverPath]()
+            { QDesktopServices::openUrl(QUrl::fromLocalFile(serverPath)); });
+    form->addRow(openDirBtn);
+
+    QPushButton *uninstallBtn = new QPushButton("Uninstall Server");
+    uninstallBtn->setStyleSheet("QPushButton { color: red; }");
+    connect(uninstallBtn, &QPushButton::clicked, this, &MainWindow::onUninstallServer);
+    form->addRow(uninstallBtn);
 
     connect(saveBtn, &QPushButton::clicked, this, [this, serverPath, portSpin, autoRestartCheck, delaySpin]()
             {
@@ -471,13 +507,79 @@ void MainWindow::onOpenConfigEditor()
     editor.exec();
 }
 
+void MainWindow::onUninstallServer()
+{
+    int idx = m_serverList->currentRow();
+    if (idx < 0)
+    {
+        QMessageBox::warning(this, "No Server Selected", "Please select a server to uninstall.");
+        return;
+    }
+
+    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
+    QString type = m_serverList->item(idx)->data(Qt::UserRole + 1).toString();
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "Uninstall Server",
+        QString("Are you sure you want to uninstall the server at:\n%1\n\nThis will permanently delete all files in that folder.")
+            .arg(QDir::toNativeSeparators(path)),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply != QMessageBox::Yes)
+        return;
+
+    if (m_manager && m_manager->isServerRunning(path))
+    {
+        m_manager->stopServer(path);
+        QApplication::processEvents();
+        QThread::sleep(1);
+    }
+
+    m_settings->removeServer(path);
+    m_settings->save();
+
+    QDir dir(path);
+    if (dir.exists())
+    {
+        if (!dir.removeRecursively())
+        {
+            QMessageBox::warning(this, "Uninstall Failed",
+                                 "Could not delete the server folder. Please check permissions and try again.");
+            return;
+        }
+    }
+
+    if (m_consoles.contains(path))
+    {
+        delete m_consoles.take(path);
+    }
+    if (m_serverDetailWidgets.contains(path))
+    {
+        QWidget *w = m_serverDetailWidgets.take(path);
+        if (m_contentStack->indexOf(w) != -1)
+        {
+            m_contentStack->removeWidget(w);
+        }
+        w->deleteLater();
+    }
+
+    refreshServerList();
+    updateInstalledStatus();
+
+    statusBar()->showMessage("Server uninstalled: " + path, 3000);
+}
+
 void MainWindow::updateServerStatus()
 {
     updateServerListStatus();
     int idx = m_serverList->currentRow();
     if (idx < 0)
     {
-        statusBar()->showMessage("No server selected");
+        m_statusLabel->setText("<b>No server selected</b>");
+        m_launchAction->setEnabled(false);
+        m_stopAction->setEnabled(false);
+        m_restartAction->setEnabled(false);
         return;
     }
     QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
@@ -485,23 +587,31 @@ void MainWindow::updateServerStatus()
     m_launchAction->setEnabled(!running);
     m_stopAction->setEnabled(running);
     m_restartAction->setEnabled(true);
+
     ConsoleWidget *console = m_consoles.value(path, nullptr);
     if (console)
-    {
         console->setRunning(running);
-    }
+
     if (running)
     {
         ServerProcess *proc = m_manager->getProcess(path);
-        if (proc)
-        {
-            qint64 uptime = proc->uptime();
-            statusBar()->showMessage(QString("Server running for %1 seconds").arg(uptime));
-        }
+        qint64 uptime = proc ? proc->uptime() : 0;
+        QString html = QString(
+                           "<b style='color: green;'>%1</b> "
+                           "<span style='color: gray;'>|</span> "
+                           "<b>Running</b> for <b>%2</b> seconds")
+                           .arg(QDir::toNativeSeparators(path))
+                           .arg(uptime);
+        m_statusLabel->setText(html);
     }
     else
     {
-        statusBar()->showMessage("Server stopped");
+        QString html = QString(
+                           "<b style='color: red;'>%1</b> "
+                           "<span style='color: gray;'>|</span> "
+                           "<b>Stopped</b>")
+                           .arg(QDir::toNativeSeparators(path));
+        m_statusLabel->setText(html);
     }
     updateToolbarColors();
 }
@@ -514,29 +624,11 @@ void MainWindow::onServerLog(const QString &serverPath, const QString &line, boo
 
 void MainWindow::onServerStateChanged(const QString &serverPath, bool running)
 {
-    updateServerListStatus();
-    int idx = m_serverList->currentRow();
-    if (idx >= 0)
-    {
-        QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-        if (path == serverPath)
-        {
-            m_launchAction->setEnabled(!running);
-            m_stopAction->setEnabled(running);
-            ConsoleWidget *console = m_consoles.value(serverPath, nullptr);
-            if (console)
-                console->setRunning(running);
-            if (running)
-            {
-                statusBar()->showMessage("Server started: " + serverPath, 3000);
-            }
-            else
-            {
-                statusBar()->showMessage("Server stopped: " + serverPath, 3000);
-            }
-        }
-    }
-    updateToolbarColors();
+    updateServerStatus();
+    if (running)
+        statusBar()->showMessage("Server started: " + serverPath, 3000);
+    else
+        statusBar()->showMessage("Server stopped: " + serverPath, 3000);
 }
 
 void MainWindow::createTrayIcon()
@@ -587,23 +679,40 @@ void MainWindow::updateToolbarColors()
     if (launchWidget)
     {
         if (hasSelection && !running)
-        {
             launchWidget->setStyleSheet("QToolButton { color: green; }");
-        }
         else
-        {
             launchWidget->setStyleSheet("");
-        }
     }
     if (stopWidget)
     {
         if (hasSelection && running)
-        {
             stopWidget->setStyleSheet("QToolButton { color: red; }");
-        }
         else
-        {
             stopWidget->setStyleSheet("");
-        }
+    }
+}
+
+void MainWindow::updateInstalledStatus()
+{
+    QString basePath = m_installPathEdit->text();
+    if (basePath.isEmpty())
+    {
+        m_installStatusLabel->setText("");
+        return;
+    }
+
+    QString type = m_serverTypeCombo->currentText();
+    QString serverFolder = QDir(basePath).absoluteFilePath(type);
+    bool installed = QDir(serverFolder).exists();
+
+    if (installed)
+    {
+        m_installStatusLabel->setText(QStringLiteral("✅ Installed"));
+        m_installStatusLabel->setStyleSheet("color: green;");
+    }
+    else
+    {
+        m_installStatusLabel->setText(QStringLiteral("❌ Not installed"));
+        m_installStatusLabel->setStyleSheet("color: gray;");
     }
 }
