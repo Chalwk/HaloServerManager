@@ -205,10 +205,8 @@ namespace
                 const QString normalized =
                     QDir::fromNativeSeparators(relativePath).toLower();
 
-                if (normalized == "maps" || normalized == "cg/savegames")
-                {
+                if (normalized == "maps" || normalized == "cg/savegames" || normalized == "cg/saved")
                     return false;
-                }
             }
 
             return true;
