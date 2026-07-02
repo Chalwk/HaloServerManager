@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Jericho Crosby (Chalwk).
+// Licensed under the GPL License.
+
 #ifndef SERVERMANAGER_H
 #define SERVERMANAGER_H
 

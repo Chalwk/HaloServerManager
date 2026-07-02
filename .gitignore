@@ -1,0 +1,13 @@
+build/
+*.exe
+*.pdb
+*.ilk
+*.log
+
+*.user
+*.suo
+
+CMakeCache.txt
+CMakeFiles/
+
+.idea/
