@@ -218,7 +218,7 @@ ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
     : QDialog(parent), m_serverPath(serverPath), m_highlighter(nullptr),
       m_encoding(Utf8), m_hasBom(false)
 {
-    setWindowTitle("Server Files Editor");
+    setWindowTitle(QString("Server Files Editor - %1").arg(QDir::toNativeSeparators(m_serverPath)));
     resize(1200, 700);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);

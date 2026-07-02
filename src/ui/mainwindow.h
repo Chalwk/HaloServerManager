@@ -17,6 +17,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QMap>
+#include <QGroupBox>
 
 class ServerInstaller;
 class ServerManager;
@@ -24,6 +25,19 @@ class Settings;
 class ConsoleWidget;
 class ConfigEditor;
 class QUdpSocket;
+
+struct ServerQueryInfo
+{
+    QString hostname;
+    int maxplayers = 0;
+    int numplayers = 0;
+    QString mapname;
+    QString gametype;
+    QString gamevariant;
+    bool teamplay = false;
+    int fraglimit = 0;
+    bool valid = false;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -61,6 +75,7 @@ private:
     QWidget *getServerDetailWidget(const QString &serverPath);
     void showConsoleForServer(const QString &serverPath);
     void setStatusText(const QString &text);
+    void updateQueryInfoDisplay(const QString &serverPath);
 
     void sendServerQuery(const QString &serverPath, int port);
     void parseQueryReply(const QString &serverPath, const QByteArray &reply);
@@ -96,9 +111,17 @@ private:
     QMap<QString, QPushButton *> m_stopButtons;
     QMap<QString, QPushButton *> m_restartButtons;
 
-    QMap<QString, int> m_playerCounts;
-    QMap<QString, int> m_maxPlayers;
-    QMap<QString, QUdpSocket*> m_pendingQueries;
+    QMap<QString, QUdpSocket *> m_pendingQueries;
+
+    QMap<QString, ServerQueryInfo> m_queryInfo;
+    QGroupBox *m_queryInfoGroup;
+    QLabel *m_hostnameLabel;
+    QLabel *m_mapLabel;
+    QLabel *m_gametypeLabel;
+    QLabel *m_variantLabel;
+    QLabel *m_playersLabel;
+    QLabel *m_teamplayLabel;
+    QLabel *m_fraglimitLabel;
 };
 
 #endif

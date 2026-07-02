@@ -24,6 +24,13 @@ ConsoleWidget::ConsoleWidget(const QString &serverPath, QWidget *parent)
     m_logView->setReadOnly(true);
     m_logView->setFont(QFont("Courier New", 9));
     m_logView->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_logView->setStyleSheet(
+        "QPlainTextEdit {"
+        "    background-color: #1e1e1e;"
+        "    color: #d4d4d4;"
+        "    selection-background-color: #264f78;"
+        "    selection-color: #ffffff;"
+        "}");
     layout->addWidget(m_logView);
 
     QHBoxLayout *inputLayout = new QHBoxLayout();
@@ -51,8 +58,17 @@ ConsoleWidget::ConsoleWidget(const QString &serverPath, QWidget *parent)
 void ConsoleWidget::appendLog(const QString &line, bool isError)
 {
     QString cleaned = stripAnsi(line);
-    QString prefix = isError ? "[ERROR] " : "";
-    m_logView->appendPlainText(prefix + cleaned);
+
+    QTextCursor cursor(m_logView->document());
+    cursor.movePosition(QTextCursor::End);
+
+    QTextCharFormat format;
+    QColor defaultColor(0xd4, 0xd4, 0xd4);
+    format.setForeground(isError ? Qt::red : defaultColor);
+
+    cursor.insertText(cleaned, format);
+    cursor.insertBlock();
+
     m_logView->moveCursor(QTextCursor::End);
 }
 

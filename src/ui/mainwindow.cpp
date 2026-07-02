@@ -138,10 +138,23 @@ void MainWindow::setupUi()
     connect(m_serverList, &QListWidget::currentRowChanged, this, &MainWindow::onServerSelectionChanged);
     leftLayout->addWidget(m_serverList);
 
-    QPushButton *newServerBtn = new QPushButton("Install New Server");
-    connect(newServerBtn, &QPushButton::clicked, this, [this]()
-            { m_tabWidget->setCurrentIndex(0); });
-    leftLayout->addWidget(newServerBtn);
+    m_queryInfoGroup = new QGroupBox("Server Information");
+    QFormLayout *infoLayout = new QFormLayout(m_queryInfoGroup);
+    m_hostnameLabel = new QLabel("N/A");
+    m_mapLabel = new QLabel("N/A");
+    m_gametypeLabel = new QLabel("N/A");
+    m_variantLabel = new QLabel("N/A");
+    m_playersLabel = new QLabel("N/A");
+    m_teamplayLabel = new QLabel("N/A");
+    m_fraglimitLabel = new QLabel("N/A");
+    infoLayout->addRow("Hostname:", m_hostnameLabel);
+    infoLayout->addRow("Map:", m_mapLabel);
+    infoLayout->addRow("Game Type:", m_gametypeLabel);
+    infoLayout->addRow("Mode:", m_variantLabel);
+    infoLayout->addRow("Players:", m_playersLabel);
+    infoLayout->addRow("Teamplay:", m_teamplayLabel);
+    infoLayout->addRow("Score Limit:", m_fraglimitLabel);
+    leftLayout->addWidget(m_queryInfoGroup);
     leftLayout->addStretch();
 
     m_contentStack = new QStackedWidget();
@@ -285,19 +298,10 @@ void MainWindow::updateServerListStatus()
         QString type = item->data(Qt::UserRole + 1).toString();
         bool running = m_manager && m_manager->isServerRunning(path);
 
-        int current = m_playerCounts.value(path, -1);
-        int max = m_maxPlayers.value(path, -1);
-        QString countStr;
-        if (running && current >= 0 && max >= 0)
-            countStr = QString(" (%1/%2)").arg(current).arg(max);
-        else if (running)
-            countStr = " (?)";
-
-        QString statusText = QString("%1 [%2] %3%4")
+        QString statusText = QString("%1 [%2] %3")
                                  .arg(type)
                                  .arg(running ? "🟢" : "🔴")
-                                 .arg(running ? "RUNNING" : "STOPPED")
-                                 .arg(countStr);
+                                 .arg(running ? "RUNNING" : "STOPPED");
         item->setText(statusText);
         item->setForeground(running ? Qt::darkGreen : Qt::red);
     }
@@ -475,10 +479,18 @@ void MainWindow::onServerSelectionChanged()
     {
         QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
         showConsoleForServer(path);
+        updateQueryInfoDisplay(path);
     }
     else
     {
         m_contentStack->setCurrentIndex(0);
+        m_hostnameLabel->setText("N/A");
+        m_mapLabel->setText("N/A");
+        m_gametypeLabel->setText("N/A");
+        m_variantLabel->setText("N/A");
+        m_playersLabel->setText("N/A");
+        m_teamplayLabel->setText("N/A");
+        m_fraglimitLabel->setText("N/A");
     }
     updateServerStatus();
 }
@@ -509,8 +521,6 @@ void MainWindow::updateServerStatus()
         }
         else
         {
-            m_playerCounts.remove(path);
-            m_maxPlayers.remove(path);
             if (m_pendingQueries.contains(path))
             {
                 m_pendingQueries[path]->deleteLater();
@@ -536,22 +546,12 @@ void MainWindow::updateServerStatus()
     {
         ServerProcess *proc = m_manager->getProcess(path);
         qint64 uptime = proc ? proc->uptime() : 0;
-        int current = m_playerCounts.value(path, -1);
-        int max = m_maxPlayers.value(path, -1);
-        QString countStr;
-        if (current >= 0 && max >= 0)
-            countStr = QString("Players: %1/%2").arg(current).arg(max);
-        else
-            countStr = "Players: ?";
         QString html = QString(
                            "<b style='color: green;'>%1</b> "
                            "<span style='color: gray;'>|</span> "
-                           "<b>Running</b> for <b>%2</b> seconds "
-                           "<span style='color: gray;'>|</span> "
-                           "%3")
+                           "<b>Running</b> for <b>%2</b> seconds")
                            .arg(QDir::toNativeSeparators(path))
-                           .arg(uptime)
-                           .arg(countStr);
+                           .arg(uptime);
         m_statusLabel->setText(html);
     }
     else
@@ -607,64 +607,98 @@ void MainWindow::parseQueryReply(const QString &serverPath, const QByteArray &re
     QStringList parts = replyStr.split('\\', Qt::SkipEmptyParts);
     qDebug() << "Parts:" << parts;
 
+    ServerQueryInfo info;
+    info.valid = true;
+
     int players = -1;
     int maxPlayers = -1;
 
     for (int i = 0; i < parts.size() - 1; i += 2)
     {
-        QString key = parts[i];
+        QString key = parts[i].toLower();
         QString value = parts[i + 1];
-        if (key == "sv_players")
+
+        if (key == "hostname" || key == "sv_hostname")
         {
-            players = value.split(';', Qt::SkipEmptyParts).count();
-            qDebug() << "sv_players count:" << players;
+            info.hostname = value;
         }
-        else if (key == "sv_maxplayers")
+        else if (key == "mapname" || key == "sv_mapname")
+        {
+            info.mapname = value;
+        }
+        else if (key == "gametype" || key == "sv_gametype")
+        {
+            info.gametype = value;
+        }
+        else if (key == "gamevariant" || key == "sv_gamevariant" || key == "sv_variant")
+        {
+            info.gamevariant = value;
+        }
+        else if (key == "teamplay" || key == "sv_teamplay")
+        {
+            info.teamplay = (value.toInt() == 1);
+        }
+        else if (key == "fraglimit" || key == "sv_fraglimit")
+        {
+            info.fraglimit = value.toInt();
+        }
+        else if (key == "maxplayers" || key == "sv_maxplayers")
         {
             maxPlayers = value.toInt();
-            qDebug() << "sv_maxplayers:" << maxPlayers;
+            info.maxplayers = maxPlayers;
         }
-        else if (key == "players")
+        else if (key == "numplayers" || key == "players" || key == "sv_players")
         {
             bool ok;
             int num = value.toInt(&ok);
             if (ok)
             {
                 players = num;
-                qDebug() << "players (int):" << players;
             }
             else
             {
                 players = value.split(';', Qt::SkipEmptyParts).count();
-                qDebug() << "players (list count):" << players;
             }
-        }
-        else if (key == "maxplayers")
-        {
-            maxPlayers = value.toInt();
-            qDebug() << "maxplayers:" << maxPlayers;
-        }
-        else if (key == "numplayers")
-        {
-            players = value.toInt();
-            qDebug() << "numplayers:" << players;
+            info.numplayers = players;
         }
     }
 
-    if (players >= 0 && maxPlayers >= 0)
+    m_queryInfo[serverPath] = info;
+
+    int idx = m_serverList->currentRow();
+    if (idx >= 0)
     {
-        m_playerCounts[serverPath] = players;
-        m_maxPlayers[serverPath] = maxPlayers;
-        qDebug() << "Updated counts for" << serverPath << ":" << players << "/" << maxPlayers;
-    }
-    else
-    {
-        m_playerCounts[serverPath] = -1;
-        m_maxPlayers[serverPath] = -1;
-        qDebug() << "Failed to parse player counts for" << serverPath;
+        QString currentPath = m_serverList->item(idx)->data(Qt::UserRole).toString();
+        if (currentPath == serverPath)
+        {
+            updateQueryInfoDisplay(serverPath);
+        }
     }
 
     updateServerListStatus();
+}
+
+void MainWindow::updateQueryInfoDisplay(const QString &serverPath)
+{
+    if (!m_queryInfo.contains(serverPath) || !m_queryInfo[serverPath].valid)
+    {
+        m_hostnameLabel->setText("Not running or no data");
+        m_mapLabel->setText("N/A");
+        m_gametypeLabel->setText("N/A");
+        m_variantLabel->setText("N/A");
+        m_playersLabel->setText("N/A");
+        m_teamplayLabel->setText("N/A");
+        m_fraglimitLabel->setText("N/A");
+        return;
+    }
+    const ServerQueryInfo &info = m_queryInfo[serverPath];
+    m_hostnameLabel->setText(info.hostname.isEmpty() ? "N/A" : info.hostname);
+    m_mapLabel->setText(info.mapname.isEmpty() ? "N/A" : info.mapname);
+    m_gametypeLabel->setText(info.gametype.isEmpty() ? "N/A" : info.gametype);
+    m_variantLabel->setText(info.gamevariant.isEmpty() ? "N/A" : info.gamevariant);
+    m_playersLabel->setText(QString("%1/%2").arg(info.numplayers).arg(info.maxplayers));
+    m_teamplayLabel->setText(info.teamplay ? "Yes" : "No");
+    m_fraglimitLabel->setText(QString::number(info.fraglimit));
 }
 
 void MainWindow::onServerLog(const QString &serverPath, const QString &line, bool isError)
@@ -675,6 +709,22 @@ void MainWindow::onServerLog(const QString &serverPath, const QString &line, boo
 
 void MainWindow::onServerStateChanged(const QString &serverPath, bool running)
 {
+    if (!running)
+    {
+        if (m_queryInfo.contains(serverPath))
+        {
+            m_queryInfo[serverPath].valid = false;
+        }
+        int idx = m_serverList->currentRow();
+        if (idx >= 0)
+        {
+            QString currentPath = m_serverList->item(idx)->data(Qt::UserRole).toString();
+            if (currentPath == serverPath)
+            {
+                updateQueryInfoDisplay(serverPath);
+            }
+        }
+    }
     updateServerStatus();
     statusBar()->showMessage(running ? "Server started: " + serverPath : "Server stopped: " + serverPath, 3000);
 }
@@ -736,8 +786,7 @@ void MainWindow::onUninstallServer()
     m_startButtons.remove(path);
     m_stopButtons.remove(path);
     m_restartButtons.remove(path);
-    m_playerCounts.remove(path);
-    m_maxPlayers.remove(path);
+    m_queryInfo.remove(path);
     if (m_pendingQueries.contains(path))
     {
         m_pendingQueries[path]->deleteLater();
@@ -752,17 +801,29 @@ void MainWindow::onUninstallServer()
 void MainWindow::createTrayIcon()
 {
     m_trayIcon = new QSystemTrayIcon(this);
-    m_trayIcon->setIcon(QIcon(":/icons/app_icon.png"));
+
+    QPixmap pixmap(":/icons/app_icon.png");
+    if (!pixmap.isNull()) {
+        m_trayIcon->setIcon(QIcon(pixmap));
+    } else {
+        m_trayIcon->setIcon(QIcon(":/icons/app_icon.png"));
+    }
+
     m_trayMenu = new QMenu(this);
     QAction *showAction = new QAction("Show", this);
     connect(showAction, &QAction::triggered, this, &QMainWindow::show);
     m_trayMenu->addAction(showAction);
+
     QAction *quitAction = new QAction("Quit", this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
     m_trayMenu->addAction(quitAction);
+
     m_trayIcon->setContextMenu(m_trayMenu);
     connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayActivated);
+
     m_trayIcon->show();
+
+    setWindowIcon(QIcon(":/icons/app_icon.png"));
 }
 
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
