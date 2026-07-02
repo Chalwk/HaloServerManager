@@ -10,6 +10,7 @@
 #include <QSyntaxHighlighter>
 #include <QRegularExpression>
 #include <QTextCharFormat>
+#include <utility>
 
 namespace
 {
@@ -51,7 +52,7 @@ namespace
     protected:
         void highlightBlock(const QString &text) override
         {
-            for (const HighlightingRule &rule : qAsConst(highlightingRules))
+            for (const HighlightingRule &rule : std::as_const(highlightingRules))
             {
                 QRegularExpressionMatchIterator it = rule.pattern.globalMatch(text);
                 while (it.hasNext())
@@ -121,7 +122,7 @@ namespace
     protected:
         void highlightBlock(const QString &text) override
         {
-            for (const HighlightingRule &rule : qAsConst(highlightingRules))
+            for (const HighlightingRule &rule : std::as_const(highlightingRules))
             {
                 QRegularExpressionMatchIterator it = rule.pattern.globalMatch(text);
                 while (it.hasNext())

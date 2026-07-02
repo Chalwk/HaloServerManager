@@ -12,7 +12,6 @@
 #include <QProgressBar>
 #include <QListWidget>
 #include <QLabel>
-#include <QSpinBox>
 #include <QStackedWidget>
 #include <QToolBar>
 #include <QSystemTrayIcon>
@@ -45,8 +44,6 @@ private slots:
     void onToggleAutoRestart(bool checked);
     void onOpenConfigEditor();
 
-    void onPortChanged();
-
     void updateServerStatus();
     void onServerLog(const QString &serverPath, const QString &line, bool isError);
     void onServerStateChanged(const QString &serverPath, bool running);
@@ -59,6 +56,7 @@ private:
     void createTrayIcon();
     void updateServerListStatus();
     ConsoleWidget *getConsoleForServer(const QString &serverPath);
+    QWidget *getServerDetailWidget(const QString &serverPath);
     void showConsoleForServer(const QString &serverPath);
     void setStatusText(const QString &text);
     void updateToolbarColors();
@@ -81,9 +79,6 @@ private:
     QAction *m_autoRestartAction;
     QAction *m_configAction;
 
-    QSpinBox *m_portSpinBox;
-    QPushButton *m_savePortButton;
-
     ServerInstaller *m_installer;
     ServerManager *m_manager;
     Settings *m_settings;
@@ -92,6 +87,7 @@ private:
     QMenu *m_trayMenu;
 
     QMap<QString, ConsoleWidget *> m_consoles;
+    QMap<QString, QWidget *> m_serverDetailWidgets;
 };
 
 #endif

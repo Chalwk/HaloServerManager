@@ -19,17 +19,19 @@ public:
     void load();
     void save();
 
-    int port() const;
-    void setPort(int port);
+    int serverPort(const QString &path) const;
+    void setServerPort(const QString &path, int port);
 
     QJsonArray servers() const;
-    void addServer(const QString &path, const QString &type);
+    void addServer(const QString &path, const QString &type, int port = 2302);
     void removeServer(const QString &path);
 
     bool autoStart(const QString &path) const;
     void setAutoStart(const QString &path, bool enabled);
+
     bool autoRestart(const QString &path) const;
     void setAutoRestart(const QString &path, bool enabled);
+
     int restartDelay(const QString &path) const;
     void setRestartDelay(const QString &path, int seconds);
 

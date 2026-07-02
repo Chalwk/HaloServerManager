@@ -136,23 +136,13 @@ void MainWindow::setupUi()
     m_tabWidget->addTab(serversTab, "Servers");
 
     QWidget *settingsTab = new QWidget();
-    QFormLayout *settingsLayout = new QFormLayout(settingsTab);
-
-    m_portSpinBox = new QSpinBox();
-    m_portSpinBox->setRange(1, 65535);
-    m_portSpinBox->setValue(2302);
-    connect(m_portSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onPortChanged);
-    settingsLayout->addRow("Server Port:", m_portSpinBox);
-
-    m_savePortButton = new QPushButton("Save Port");
-    connect(m_savePortButton, &QPushButton::clicked, this, [this]()
-            {
-        m_settings->setPort(m_portSpinBox->value());
-        m_settings->save();
-        statusBar()->showMessage("Port saved.", 3000); });
-    settingsLayout->addWidget(m_savePortButton);
-
-    settingsTab->setLayout(settingsLayout);
+    QVBoxLayout *settingsLayout = new QVBoxLayout(settingsTab);
+    QLabel *infoLabel = new QLabel(
+        "Server-specific settings (port, auto-restart, restart delay) are available "
+        "when you select a server in the Servers tab.");
+    infoLabel->setWordWrap(true);
+    settingsLayout->addWidget(infoLabel);
+    settingsLayout->addStretch();
     m_tabWidget->addTab(settingsTab, "Settings");
 
     m_toolBar = new QToolBar(this);
@@ -198,7 +188,6 @@ void MainWindow::setupUi()
 void MainWindow::loadConfig()
 {
     m_settings->load();
-    m_portSpinBox->setValue(m_settings->port());
 
     if (!m_manager)
     {
@@ -219,7 +208,8 @@ void MainWindow::loadConfig()
         {
             QString path = obj["path"].toString();
             QString type = obj["type"].toString();
-            m_manager->launchServer(path, m_settings->port(), type);
+            int port = obj["port"].toInt(2302);
+            m_manager->launchServer(path, port, type);
         }
     }
 }
@@ -262,7 +252,7 @@ void MainWindow::onInstallClicked()
             } });
         connect(m_installer, &ServerInstaller::installedPath, this, [this](const QString &path, const QString &type)
                 {
-            m_settings->addServer(path, type);
+            m_settings->addServer(path, type, 2302);
             m_settings->save();
             refreshServerList();
             m_tabWidget->setCurrentIndex(1);
@@ -322,8 +312,10 @@ void MainWindow::onServerSelectionChanged()
     {
         QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
         showConsoleForServer(path);
+
         bool autoRestart = m_settings->autoRestart(path);
         m_autoRestartAction->setChecked(autoRestart);
+
         bool running = m_manager && m_manager->isServerRunning(path);
         m_launchAction->setEnabled(!running);
         m_stopAction->setEnabled(running);
@@ -339,16 +331,80 @@ void MainWindow::onServerSelectionChanged()
 
 void MainWindow::showConsoleForServer(const QString &serverPath)
 {
-    ConsoleWidget *console = getConsoleForServer(serverPath);
-    if (console)
+    QWidget *detailWidget = getServerDetailWidget(serverPath);
+    if (detailWidget)
     {
-        int index = m_contentStack->indexOf(console);
+        int index = m_contentStack->indexOf(detailWidget);
         if (index == -1)
-        {
-            index = m_contentStack->addWidget(console);
-        }
+            index = m_contentStack->addWidget(detailWidget);
         m_contentStack->setCurrentIndex(index);
     }
+}
+
+QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
+{
+    if (m_serverDetailWidgets.contains(serverPath))
+        return m_serverDetailWidgets[serverPath];
+
+    QWidget *container = new QWidget;
+    QVBoxLayout *layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    QTabWidget *tabWidget = new QTabWidget;
+
+    ConsoleWidget *console = new ConsoleWidget(serverPath, this);
+    connect(console, &ConsoleWidget::commandSent, this, [this](const QString &path, const QString &cmd)
+            {
+        if (m_manager) {
+            ServerProcess *proc = m_manager->getProcess(path);
+            if (proc)
+                proc->sendCommand(cmd);
+        } });
+    m_consoles[serverPath] = console;
+    tabWidget->addTab(console, "Console");
+
+    QWidget *settingsPanel = new QWidget;
+    QFormLayout *form = new QFormLayout(settingsPanel);
+
+    QSpinBox *portSpin = new QSpinBox;
+    portSpin->setRange(1, 65535);
+    portSpin->setValue(m_settings->serverPort(serverPath));
+    form->addRow("Server Port:", portSpin);
+
+    QCheckBox *autoRestartCheck = new QCheckBox;
+    autoRestartCheck->setChecked(m_settings->autoRestart(serverPath));
+    form->addRow("Auto-Restart:", autoRestartCheck);
+
+    QSpinBox *delaySpin = new QSpinBox;
+    delaySpin->setRange(1, 300);
+    delaySpin->setValue(m_settings->restartDelay(serverPath));
+    form->addRow("Restart Delay (s):", delaySpin);
+
+    QPushButton *saveBtn = new QPushButton("Save Settings");
+    form->addRow(saveBtn);
+
+    connect(saveBtn, &QPushButton::clicked, this, [this, serverPath, portSpin, autoRestartCheck, delaySpin]()
+            {
+        m_settings->setServerPort(serverPath, portSpin->value());
+        m_settings->setAutoRestart(serverPath, autoRestartCheck->isChecked());
+        m_settings->setRestartDelay(serverPath, delaySpin->value());
+        m_settings->save();
+
+        if (m_manager) {
+            m_manager->setAutoRestart(serverPath, autoRestartCheck->isChecked(), delaySpin->value());
+        }
+
+        m_autoRestartAction->setChecked(autoRestartCheck->isChecked());
+
+        statusBar()->showMessage("Settings saved for " + serverPath, 3000); });
+
+    tabWidget->addTab(settingsPanel, "Settings");
+
+    layout->addWidget(tabWidget);
+    container->setLayout(layout);
+
+    m_serverDetailWidgets[serverPath] = container;
+    return container;
 }
 
 ConsoleWidget *MainWindow::getConsoleForServer(const QString &serverPath)
@@ -374,14 +430,17 @@ void MainWindow::onLaunchServer()
     if (idx < 0)
         return;
     QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
+
     QJsonArray servers = m_settings->servers();
     QString type;
+    int port = 2302;
     for (const QJsonValue &val : servers)
     {
         QJsonObject obj = val.toObject();
         if (obj["path"].toString() == path)
         {
             type = obj["type"].toString();
+            port = obj["port"].toInt(2302);
             break;
         }
     }
@@ -392,7 +451,7 @@ void MainWindow::onLaunchServer()
     if (console)
         console->clear();
 
-    if (m_manager->launchServer(path, m_settings->port(), type))
+    if (m_manager->launchServer(path, port, type))
     {
         statusBar()->showMessage("Server launched: " + path, 3000);
         updateServerStatus();
@@ -449,10 +508,6 @@ void MainWindow::onOpenConfigEditor()
     QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
     ConfigEditor editor(path, this);
     editor.exec();
-}
-
-void MainWindow::onPortChanged()
-{
 }
 
 void MainWindow::updateServerStatus()
@@ -559,7 +614,8 @@ void MainWindow::updateToolbarColors()
     int idx = m_serverList->currentRow();
     bool hasSelection = (idx >= 0);
     bool running = false;
-    if (hasSelection) {
+    if (hasSelection)
+    {
         QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
         running = m_manager && m_manager->isServerRunning(path);
     }
@@ -567,17 +623,25 @@ void MainWindow::updateToolbarColors()
     QWidget *launchWidget = m_toolBar->widgetForAction(m_launchAction);
     QWidget *stopWidget = m_toolBar->widgetForAction(m_stopAction);
 
-    if (launchWidget) {
-        if (hasSelection && !running) {
+    if (launchWidget)
+    {
+        if (hasSelection && !running)
+        {
             launchWidget->setStyleSheet("QToolButton { color: green; }");
-        } else {
+        }
+        else
+        {
             launchWidget->setStyleSheet("");
         }
     }
-    if (stopWidget) {
-        if (hasSelection && running) {
+    if (stopWidget)
+    {
+        if (hasSelection && running)
+        {
             stopWidget->setStyleSheet("QToolButton { color: red; }");
-        } else {
+        }
+        else
+        {
             stopWidget->setStyleSheet("");
         }
     }

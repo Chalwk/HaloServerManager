@@ -39,7 +39,6 @@ void Settings::load()
         }
     }
     m_config = QJsonObject();
-    m_config["port"] = 2302;
     m_config["servers"] = QJsonArray();
 }
 
@@ -54,33 +53,23 @@ void Settings::save()
     }
 }
 
-int Settings::port() const
-{
-    return m_config.value("port").toInt(2302);
-}
-
-void Settings::setPort(int port)
-{
-    m_config["port"] = port;
-}
-
 QJsonArray Settings::servers() const
 {
     return m_config.value("servers").toArray();
 }
 
-void Settings::addServer(const QString &path, const QString &type)
+void Settings::addServer(const QString &path, const QString &type, int port)
 {
     QJsonArray arr = servers();
-    for (int i = 0; i < arr.size(); ++i)
+    for (const QJsonValue &val : arr)
     {
-        QJsonObject obj = arr[i].toObject();
-        if (obj.value("path").toString() == path)
+        if (val.toObject().value("path").toString() == path)
             return;
     }
     QJsonObject newServer;
     newServer["path"] = path;
     newServer["type"] = type;
+    newServer["port"] = port;
     newServer["autoStart"] = false;
     newServer["autoRestart"] = false;
     newServer["restartDelay"] = 5;
@@ -100,6 +89,34 @@ void Settings::removeServer(const QString &path)
         }
     }
     m_config["servers"] = arr;
+}
+
+int Settings::serverPort(const QString &path) const
+{
+    QJsonArray arr = servers();
+    for (const QJsonValue &val : arr)
+    {
+        QJsonObject obj = val.toObject();
+        if (obj.value("path").toString() == path)
+            return obj.value("port").toInt(2302);
+    }
+    return 2302;
+}
+
+void Settings::setServerPort(const QString &path, int port)
+{
+    QJsonArray arr = servers();
+    for (int i = 0; i < arr.size(); ++i)
+    {
+        QJsonObject obj = arr[i].toObject();
+        if (obj.value("path").toString() == path)
+        {
+            obj["port"] = port;
+            arr[i] = obj;
+            m_config["servers"] = arr;
+            break;
+        }
+    }
 }
 
 bool Settings::autoStart(const QString &path) const
