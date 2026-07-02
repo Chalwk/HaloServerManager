@@ -13,6 +13,8 @@
 #include <QSplitter>
 #include <QHeaderView>
 #include <utility>
+#include <QStringDecoder>
+#include <QStringEncoder>
 
 namespace
 {
@@ -172,7 +174,8 @@ namespace
 }
 
 ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
-    : QDialog(parent), m_serverPath(serverPath), m_highlighter(nullptr)
+    : QDialog(parent), m_serverPath(serverPath), m_highlighter(nullptr),
+      m_encoding(Utf8), m_hasBom(false)
 {
     setWindowTitle("Server Files Editor");
     resize(1200, 700);
@@ -239,18 +242,79 @@ void ConfigEditor::loadFile(const QString &absolutePath)
     m_currentAbsolutePath = absolutePath;
 
     QFile file(absolutePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-        QTextStream stream(&file);
-        m_textEdit->setPlainText(stream.readAll());
-        file.close();
-        setHighlighterForFile(absolutePath);
-    }
-    else
+    if (!file.open(QIODevice::ReadOnly))
     {
         m_textEdit->setPlainText("Cannot open file: " + file.errorString());
         setHighlighterForFile(QString());
+        m_encoding = Utf8;
+        m_hasBom = false;
+        return;
     }
+
+    QByteArray rawData = file.readAll();
+    file.close();
+
+    Encoding enc = Utf8;
+    bool hasBom = false;
+    QByteArray dataToDecode = rawData;
+
+    if (rawData.size() >= 2)
+    {
+        const uchar *bytes = reinterpret_cast<const uchar *>(rawData.constData());
+        if (bytes[0] == 0xFF && bytes[1] == 0xFE)
+        {
+            enc = Utf16LE;
+            hasBom = true;
+        }
+        else if (bytes[0] == 0xFE && bytes[1] == 0xFF)
+        {
+            enc = Utf16BE;
+            hasBom = true;
+        }
+        else if (rawData.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+        {
+            enc = Utf8;
+            hasBom = true;
+            dataToDecode = rawData.mid(3);
+        }
+    }
+
+    m_encoding = enc;
+    m_hasBom = hasBom;
+
+    QString text;
+    switch (enc)
+    {
+    case Utf8:
+    {
+        QStringDecoder decoder(QStringDecoder::Utf8);
+        text = decoder.decode(dataToDecode);
+        if (decoder.hasError())
+            text = QString::fromUtf8(dataToDecode);
+        break;
+    }
+    case Utf16LE:
+    {
+        QStringDecoder decoder(QStringDecoder::Utf16LE);
+        text = decoder.decode(rawData);
+        if (decoder.hasError())
+            text = QString::fromUtf16(reinterpret_cast<const char16_t *>(rawData.constData()), rawData.size() / 2);
+        break;
+    }
+    case Utf16BE:
+    {
+        QStringDecoder decoder(QStringDecoder::Utf16BE);
+        text = decoder.decode(rawData);
+        if (decoder.hasError())
+        {
+            text = QString::fromUtf16(reinterpret_cast<const char16_t *>(rawData.constData()), rawData.size() / 2);
+        }
+        break;
+    }
+    }
+
+    m_textEdit->setPlainText(text);
+    setHighlighterForFile(absolutePath);
 }
 
 void ConfigEditor::setHighlighterForFile(const QString &filePath)
@@ -286,18 +350,51 @@ void ConfigEditor::saveFile()
         return;
     }
 
-    QFile file(m_currentAbsolutePath);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+    QString text = m_textEdit->toPlainText();
+
+    QByteArray encoded;
+    switch (m_encoding)
     {
-        QTextStream stream(&file);
-        stream << m_textEdit->toPlainText();
-        file.close();
-        QMessageBox::information(this, "Saved", "File saved successfully.");
+    case Utf8:
+    {
+        QStringEncoder encoder(QStringEncoder::Utf8);
+        if (m_hasBom)
+        {
+            encoded = QByteArray("\xEF\xBB\xBF") + encoder.encode(text);
+        }
+        else
+        {
+            encoded = encoder.encode(text);
+        }
+        break;
     }
-    else
+    case Utf16LE:
+    {
+        QStringEncoder encoder(QStringEncoder::Utf16LE,
+                               m_hasBom ? QStringEncoder::Flag::WriteBom : QStringEncoder::Flag::Stateless);
+        encoded = encoder.encode(text);
+        break;
+    }
+    case Utf16BE:
+    {
+        QStringEncoder encoder(QStringEncoder::Utf16BE,
+                               m_hasBom ? QStringEncoder::Flag::WriteBom : QStringEncoder::Flag::Stateless);
+        encoded = encoder.encode(text);
+        break;
+    }
+    }
+
+    QFile file(m_currentAbsolutePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
     {
         QMessageBox::warning(this, "Error", "Could not save file: " + file.errorString());
+        return;
     }
+
+    file.write(encoded);
+    file.close();
+
+    QMessageBox::information(this, "Saved", "File saved successfully.");
 }
 
 void ConfigEditor::onSave()

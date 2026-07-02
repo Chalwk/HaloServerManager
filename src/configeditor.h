@@ -18,7 +18,7 @@ class QSyntaxHighlighter;
 class ConfigEditor : public QDialog
 {
     Q_OBJECT
-    
+
 public:
     explicit ConfigEditor(const QString &serverPath, QWidget *parent = nullptr);
 
@@ -27,6 +27,13 @@ private slots:
     void onFileSelected(const QModelIndex &index);
 
 private:
+    enum Encoding
+    {
+        Utf8,
+        Utf16LE,
+        Utf16BE
+    };
+
     void loadFile(const QString &absolutePath);
     void saveFile();
     void setHighlighterForFile(const QString &filePath);
@@ -39,6 +46,9 @@ private:
     QPushButton *m_closeButton;
     QString m_currentAbsolutePath;
     QSyntaxHighlighter *m_highlighter;
+
+    Encoding m_encoding;
+    bool m_hasBom;
 };
 
 #endif
