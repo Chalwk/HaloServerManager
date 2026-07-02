@@ -2,12 +2,12 @@
 
 A Windows desktop application built with Qt Widgets that downloads, installs, and manages dedicated servers for Halo CE and Halo PC (SAPP). It simplifies server deployment with a graphical interface for installation, launching, stopping, and port configuration.
 
-[![Version](https://img.shields.io/github/v/release/Chalwk/HaloServerManager?label=Version&display_name=tag)](https://github.com/Chalwk/HaloServerManager/releases/latest)
-[![License: GPL v3](https://img.shields.io/github/license/Chalwk/HaloServerManager)](https://github.com/Chalwk/HaloServerManager/blob/main/LICENSE)
-![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
-![Qt 6](https://img.shields.io/badge/Qt-6-green.svg)
-![Windows](https://img.shields.io/badge/Platform-Windows-0078D6)
-![CMake](https://img.shields.io/badge/CMake-3.24%2B-064F8C)
+[![Version][version-badge]][version-link]
+[![License: GPL v3][license-badge]][license-link]
+![C++17][cpp-badge]
+![Qt 6][qt-badge]
+![Windows][windows-badge]
+![CMake][cmake-badge]
 
 ---
 
@@ -41,8 +41,8 @@ A Windows desktop application built with Qt Widgets that downloads, installs, an
 
 You have two options to get the application:
 
-1. **Download the installer (recommended)**  
-   Grab the latest `HaloServerManagerSetup.exe` from the [Releases page](https://github.com/Chalwk/HaloServerManager/releases).  
+1. **Download the installer (recommended)**
+   Grab the latest `HaloServerManagerSetup.exe` from the [Releases page][releases].  
    The installer will:
    - Install the application to `C:\Program Files\HaloServerManager`.
    - Create a Desktop shortcut and a Start Menu folder with both application and uninstall shortcuts.
@@ -76,6 +76,15 @@ makensis HaloServerManager.nsi
 
 This project is licensed under the **GNU General Public License Version 3, 29 June 2007**.  
 Copyright © 2026 Jericho Crosby (Chalwk). See the [LICENSE](LICENSE) file for details.
-```
 
 ---
+
+[releases]: https://github.com/Chalwk/HaloServerManager/releases
+[version-badge]: https://img.shields.io/github/v/release/Chalwk/HaloServerManager?label=Version&display_name=tag
+[version-link]: https://github.com/Chalwk/HaloServerManager/releases/latest
+[license-badge]: https://img.shields.io/github/license/Chalwk/HaloServerManager
+[license-link]: https://github.com/Chalwk/HaloServerManager/blob/main/LICENSE
+[cpp-badge]: https://img.shields.io/badge/C%2B%2B-17-blue.svg
+[qt-badge]: https://img.shields.io/badge/Qt-6-green.svg
+[windows-badge]: https://img.shields.io/badge/Platform-Windows-0078D6
+[cmake-badge]: https://img.shields.io/badge/CMake-3.24%2B-064F8C
