@@ -293,8 +293,6 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     QVBoxLayout *layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    QHBoxLayout *controlLayout = new QHBoxLayout;
-
     QPushButton *startBtn = new QPushButton("Start");
     startBtn->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
     QPushButton *stopBtn = new QPushButton("Stop");
@@ -344,14 +342,16 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
         statusBar()->showMessage("Restarting server: " + serverPath, 3000);
         updateServerStatus(); });
 
-    controlLayout->addWidget(startBtn);
-    controlLayout->addWidget(stopBtn);
-    controlLayout->addWidget(restartBtn);
-    controlLayout->addStretch();
-
-    layout->addLayout(controlLayout);
-
     QTabWidget *tabWidget = new QTabWidget;
+
+    QWidget *cornerWidget = new QWidget(tabWidget);
+    QHBoxLayout *cornerLayout = new QHBoxLayout(cornerWidget);
+    cornerLayout->setContentsMargins(0, 0, 0, 0);
+    cornerLayout->setSpacing(6);
+    cornerLayout->addWidget(startBtn);
+    cornerLayout->addWidget(stopBtn);
+    cornerLayout->addWidget(restartBtn);
+    tabWidget->setCornerWidget(cornerWidget, Qt::TopRightCorner);
 
     ConsoleWidget *console = new ConsoleWidget(serverPath, this);
     connect(console, &ConsoleWidget::commandSent, this, [this](const QString &path, const QString &cmd)
