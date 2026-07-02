@@ -12,6 +12,9 @@
 #include <QLabel>
 #include <QTreeView>
 #include <QFileSystemModel>
+#include <QSortFilterProxyModel>
+#include <QMenu>
+#include <QAction>
 
 class QSyntaxHighlighter;
 
@@ -25,6 +28,10 @@ public:
 private slots:
     void onSave();
     void onFileSelected(const QModelIndex &index);
+    void onCustomContextMenu(const QPoint &pos);
+    void createNewFile();
+    void createNewFolder();
+    void deleteSelected();
 
 private:
     enum Encoding
@@ -37,6 +44,9 @@ private:
     void loadFile(const QString &absolutePath);
     void saveFile();
     void setHighlighterForFile(const QString &filePath);
+    QModelIndex getCurrentIndex() const;
+    QString getCurrentDirectory() const;
+    QModelIndex mapToSource(const QModelIndex &index) const;
 
     QString m_serverPath;
     QTreeView *m_fileTree;
@@ -49,6 +59,11 @@ private:
 
     Encoding m_encoding;
     bool m_hasBom;
+
+    QMenu *m_contextMenu;
+    QAction *m_newFileAction;
+    QAction *m_newFolderAction;
+    QAction *m_deleteAction;
 };
 
 #endif
