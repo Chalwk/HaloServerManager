@@ -10,11 +10,12 @@
 #include <QSyntaxHighlighter>
 #include <QRegularExpression>
 #include <QTextCharFormat>
+#include <QSplitter>
+#include <QHeaderView>
 #include <utility>
 
 namespace
 {
-
     class IniHighlighter : public QSyntaxHighlighter
     {
     public:
@@ -168,106 +169,68 @@ namespace
         QRegularExpression commentStartExpression;
         QRegularExpression commentEndExpression;
     };
-
 }
 
 ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
     : QDialog(parent), m_serverPath(serverPath), m_highlighter(nullptr)
 {
     setWindowTitle("Server Files Editor");
-    resize(1100, 650);
+    resize(1200, 700);
 
-    QVBoxLayout *layout = new QVBoxLayout(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    QHBoxLayout *topLayout = new QHBoxLayout();
-    topLayout->addWidget(new QLabel("File:"));
+    QSplitter *splitter = new QSplitter(Qt::Horizontal);
 
-    m_fileCombo = new QComboBox();
-    populateFiles();
-    connect(m_fileCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &ConfigEditor::onFileChanged);
-    topLayout->addWidget(m_fileCombo);
-    topLayout->addStretch();
-    layout->addLayout(topLayout);
+    m_fileModel = new QFileSystemModel(this);
+    m_fileModel->setRootPath(m_serverPath);
+    m_fileModel->setNameFilters({"*.txt", "*.cfg", "*.lua"});
+    m_fileModel->setNameFilterDisables(false);
+    m_fileModel->setFilter(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
 
-    m_textEdit = new QTextEdit();
+    m_fileTree = new QTreeView(this);
+    m_fileTree->setModel(m_fileModel);
+    m_fileTree->setRootIndex(m_fileModel->index(m_serverPath));
+    m_fileTree->setHeaderHidden(true);
+    m_fileTree->setIndentation(15);
+    m_fileTree->setMinimumWidth(300);
+
+    m_fileTree->hideColumn(1); // Size
+    m_fileTree->hideColumn(2); // Type
+    m_fileTree->hideColumn(3); // Date modified
+
+    connect(m_fileTree->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &ConfigEditor::onFileSelected);
+
+    splitter->addWidget(m_fileTree);
+
+    m_textEdit = new QTextEdit(this);
     m_textEdit->setFont(QFont("Courier New", 10));
-    layout->addWidget(m_textEdit);
+    splitter->addWidget(m_textEdit);
+
+    splitter->setStretchFactor(1, 1);
+    mainLayout->addWidget(splitter);
 
     QHBoxLayout *btnLayout = new QHBoxLayout();
-    m_saveButton = new QPushButton("Save");
-    m_closeButton = new QPushButton("Close");
+    m_saveButton = new QPushButton("Save", this);
+    m_closeButton = new QPushButton("Close", this);
     connect(m_saveButton, &QPushButton::clicked, this, &ConfigEditor::onSave);
     connect(m_closeButton, &QPushButton::clicked, this, &QDialog::reject);
     btnLayout->addStretch();
     btnLayout->addWidget(m_saveButton);
     btnLayout->addWidget(m_closeButton);
-    layout->addLayout(btnLayout);
+    mainLayout->addLayout(btnLayout);
 
-    if (m_fileCombo->count() > 0)
-    {
-        int initIndex = m_fileCombo->findText("cg/init.txt");
-        if (initIndex == -1)
-            initIndex = 0;
-        m_fileCombo->setCurrentIndex(initIndex);
-        onFileChanged(initIndex);
-    }
+    m_fileTree->expandToDepth(1);
 }
 
-void ConfigEditor::populateFiles()
+void ConfigEditor::onFileSelected(const QModelIndex &index)
 {
-    m_fileMap.clear();
-    m_fileCombo->clear();
-
-    QStringList dirs = {".", "cg", "sapp", "cg/sapp", "cg/sapp/lua"};
-    QStringList extensions = {"*.txt", "*.cfg", "*.lua"};
-
-    for (const QString &dir : dirs)
-    {
-        QDir scanDir(QDir(m_serverPath).absoluteFilePath(dir));
-        if (!scanDir.exists())
-            continue;
-
-        QStringList files;
-        for (const QString &ext : extensions)
-            files << scanDir.entryList({ext}, QDir::Files);
-
-        for (const QString &file : files)
-        {
-            QString relativePath = QDir(dir).filePath(file);
-            relativePath = QDir::cleanPath(relativePath);
-            QString absolutePath = scanDir.absoluteFilePath(file);
-            if (!m_fileMap.contains(relativePath))
-            {
-                m_fileMap[relativePath] = absolutePath;
-                m_fileCombo->addItem(relativePath);
-            }
-        }
-    }
-
-    m_fileCombo->model()->sort(0);
-
-    if (m_fileCombo->count() == 0)
-    {
-        m_fileCombo->addItem("No editable files found");
-        m_fileCombo->setEnabled(false);
-    }
-    else
-    {
-        m_fileCombo->setEnabled(true);
-    }
-}
-
-void ConfigEditor::onFileChanged(int index)
-{
-    if (index < 0 || index >= m_fileCombo->count())
-        return;
-    QString display = m_fileCombo->itemText(index);
-    if (display == "No editable files found")
+    if (!index.isValid())
         return;
 
-    QString absolutePath = m_fileMap.value(display);
-    if (!absolutePath.isEmpty())
+    QString absolutePath = m_fileModel->fileInfo(index).absoluteFilePath();
+    QFileInfo info(absolutePath);
+    if (info.isFile())
         loadFile(absolutePath);
 }
 
