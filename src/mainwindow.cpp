@@ -78,6 +78,8 @@ void MainWindow::setupUi()
     QHBoxLayout *pathLayout = new QHBoxLayout(pathGroup);
     m_installPathEdit = new QLineEdit();
     m_installPathEdit->setReadOnly(true);
+
+    m_installPathEdit->setText(QDir::toNativeSeparators("C:/Halo Servers"));
     m_browseButton = new QPushButton("Browse...");
     connect(m_browseButton, &QPushButton::clicked, this, &MainWindow::onBrowseInstallPath);
     pathLayout->addWidget(m_installPathEdit, 1);
