@@ -1,0 +1,40 @@
+^C:\GITHUB REPOSITORIES\HALOSERVERMANAGER\BUILD\CMAKEFILES\1CC6BF7B807CD107886A91FB227FA45C\TIMESTAMP_(CONFIG).RULE
+setlocal
+cd "C:\GitHub Repositories\HaloServerManager\build"
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autogen "C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/HaloServerManager_autogen.dir/AutogenInfo.json" Debug
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch "C:/GitHub Repositories/HaloServerManager/build/HaloServerManager_autogen/timestamp_Debug"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_transform_depfile "Visual Studio 18 2026" MSBuildAdditionalInputs "C:/GitHub Repositories/HaloServerManager" "C:/GitHub Repositories/HaloServerManager" "C:/GitHub Repositories/HaloServerManager/build" "C:/GitHub Repositories/HaloServerManager/build" "C:/GitHub Repositories/HaloServerManager/build/HaloServerManager_autogen/deps_Debug" "C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/d/3fb9d712013c53ab47aa12cc123cf9b3069362a74709c55032256a65bbea87ae.AdditionalInputs"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\GITHUB REPOSITORIES\HALOSERVERMANAGER\BUILD\CMAKEFILES\79136FA6576CCCB0CBE8015C64B13000\HALOSERVERMANAGER_AUTOGEN.RULE
+setlocal
+cd "C:\GitHub Repositories\HaloServerManager\build"
+if %errorlevel% neq 0 goto :cmEnd
+C:
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\GITHUB REPOSITORIES\HALOSERVERMANAGER\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/GitHub Repositories/HaloServerManager" "-BC:/GitHub Repositories/HaloServerManager/build" --check-stamp-file "C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

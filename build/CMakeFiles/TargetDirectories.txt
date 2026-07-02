@@ -1,0 +1,6 @@
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/HaloServerManager.dir
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/INSTALL.dir
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/HaloServerManager_autogen_timestamp_deps.dir
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/HaloServerManager_autogen.dir
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/ALL_BUILD.dir
+C:/GitHub Repositories/HaloServerManager/build/CMakeFiles/ZERO_CHECK.dir
