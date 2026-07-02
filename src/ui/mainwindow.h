@@ -23,6 +23,7 @@ class ServerManager;
 class Settings;
 class ConsoleWidget;
 class ConfigEditor;
+class QUdpSocket;
 
 class MainWindow : public QMainWindow
 {
@@ -61,6 +62,9 @@ private:
     void showConsoleForServer(const QString &serverPath);
     void setStatusText(const QString &text);
 
+    void sendServerQuery(const QString &serverPath, int port);
+    void parseQueryReply(const QString &serverPath, const QByteArray &reply);
+
     QTabWidget *m_tabWidget;
 
     QComboBox *m_serverTypeCombo;
@@ -91,6 +95,10 @@ private:
     QMap<QString, QPushButton *> m_startButtons;
     QMap<QString, QPushButton *> m_stopButtons;
     QMap<QString, QPushButton *> m_restartButtons;
+
+    QMap<QString, int> m_playerCounts;
+    QMap<QString, int> m_maxPlayers;
+    QMap<QString, QUdpSocket*> m_pendingQueries;
 };
 
 #endif

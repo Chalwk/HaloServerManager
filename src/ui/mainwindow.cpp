@@ -38,6 +38,9 @@
 #include <QSpinBox>
 #include <QDesktopServices>
 #include <QThread>
+#include <QUdpSocket>
+#include <QDebug>
+#include <QHostAddress>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_installer(nullptr), m_manager(nullptr), m_settings(new Settings(this))
@@ -48,15 +51,21 @@ MainWindow::MainWindow(QWidget *parent)
     loadConfig();
     createTrayIcon();
 
-    QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &MainWindow::updateServerStatus);
-    timer->start(2000);
+    QTimer *queryTimer = new QTimer(this);
+    connect(queryTimer, &QTimer::timeout, this, &MainWindow::updateServerStatus);
+    queryTimer->start(2000);
+
     updateServerStatus();
     updateInstalledStatus();
 }
 
 MainWindow::~MainWindow()
 {
+    for (auto it = m_pendingQueries.begin(); it != m_pendingQueries.end(); ++it)
+    {
+        it.value()->deleteLater();
+    }
+    m_pendingQueries.clear();
     m_settings->save();
 }
 
@@ -222,26 +231,26 @@ void MainWindow::onInstallClicked()
         connect(m_installer, &ServerInstaller::downloadProgress, m_downloadProgress, &QProgressBar::setValue);
         connect(m_installer, &ServerInstaller::installationFinished, this, [this](bool success, const QString &message)
                 {
-            m_downloadProgress->setVisible(false);
-            m_installButton->setEnabled(!m_installPathEdit->text().isEmpty());
-            if (success) {
-                m_installProgressLabel->setText("Installation completed successfully.");
-                updateInstalledStatus();
-            } else {
-                m_installProgressLabel->setText("Installation failed: " + message);
-            } });
+                    m_downloadProgress->setVisible(false);
+                    m_installButton->setEnabled(!m_installPathEdit->text().isEmpty());
+                    if (success) {
+                        m_installProgressLabel->setText("Installation completed successfully.");
+                        updateInstalledStatus();
+                    } else {
+                        m_installProgressLabel->setText("Installation failed: " + message);
+                    } });
         connect(m_installer, &ServerInstaller::installedPath, this, [this](const QString &path, const QString &type)
                 {
-            m_settings->addServer(path, type, 2302);
-            m_settings->save();
-            refreshServerList();
-            m_tabWidget->setCurrentIndex(1);
-            for (int i = 0; i < m_serverList->count(); ++i) {
-                if (m_serverList->item(i)->data(Qt::UserRole).toString() == path) {
-                    m_serverList->setCurrentRow(i);
-                    break;
-                }
-            } });
+                    m_settings->addServer(path, type, 2302);
+                    m_settings->save();
+                    refreshServerList();
+                    m_tabWidget->setCurrentIndex(1);
+                    for (int i = 0; i < m_serverList->count(); ++i) {
+                        if (m_serverList->item(i)->data(Qt::UserRole).toString() == path) {
+                            m_serverList->setCurrentRow(i);
+                            break;
+                        }
+                    } });
     }
     m_installer->installServer(type, destPath);
 }
@@ -275,10 +284,20 @@ void MainWindow::updateServerListStatus()
         QString path = item->data(Qt::UserRole).toString();
         QString type = item->data(Qt::UserRole + 1).toString();
         bool running = m_manager && m_manager->isServerRunning(path);
-        QString statusText = QString("%1 [%2] %3")
+
+        int current = m_playerCounts.value(path, -1);
+        int max = m_maxPlayers.value(path, -1);
+        QString countStr;
+        if (running && current >= 0 && max >= 0)
+            countStr = QString(" (%1/%2)").arg(current).arg(max);
+        else if (running)
+            countStr = " (?)";
+
+        QString statusText = QString("%1 [%2] %3%4")
                                  .arg(type)
                                  .arg(running ? "🟢" : "🔴")
-                                 .arg(running ? "RUNNING" : "STOPPED");
+                                 .arg(running ? "RUNNING" : "STOPPED")
+                                 .arg(countStr);
         item->setText(statusText);
         item->setForeground(running ? Qt::darkGreen : Qt::red);
     }
@@ -306,41 +325,41 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
 
     connect(startBtn, &QPushButton::clicked, this, [this, serverPath]()
             {
-        QJsonArray servers = m_settings->servers();
-        QString type;
-        int port = 2302;
-        for (const QJsonValue &val : servers) {
-            QJsonObject obj = val.toObject();
-            if (obj["path"].toString() == serverPath) {
-                type = obj["type"].toString();
-                port = obj["port"].toInt(2302);
-                break;
-            }
-        }
-        if (type.isEmpty())
-            return;
-        ConsoleWidget *console = getConsoleForServer(serverPath);
-        if (console)
-            console->clear();
-        if (m_manager->launchServer(serverPath, port, type)) {
-            statusBar()->showMessage("Server launched: " + serverPath, 3000);
-            updateServerStatus();
-            showConsoleForServer(serverPath);
-        } else {
-            statusBar()->showMessage("Failed to launch server", 3000);
-        } });
+                QJsonArray servers = m_settings->servers();
+                QString type;
+                int port = 2302;
+                for (const QJsonValue &val : servers) {
+                    QJsonObject obj = val.toObject();
+                    if (obj["path"].toString() == serverPath) {
+                        type = obj["type"].toString();
+                        port = obj["port"].toInt(2302);
+                        break;
+                    }
+                }
+                if (type.isEmpty())
+                    return;
+                ConsoleWidget *console = getConsoleForServer(serverPath);
+                if (console)
+                    console->clear();
+                if (m_manager->launchServer(serverPath, port, type)) {
+                    statusBar()->showMessage("Server launched: " + serverPath, 3000);
+                    updateServerStatus();
+                    showConsoleForServer(serverPath);
+                } else {
+                    statusBar()->showMessage("Failed to launch server", 3000);
+                } });
 
     connect(stopBtn, &QPushButton::clicked, this, [this, serverPath]()
             {
-        m_manager->stopServer(serverPath);
-        statusBar()->showMessage("Server stopped: " + serverPath, 3000);
-        updateServerStatus(); });
+                m_manager->stopServer(serverPath);
+                statusBar()->showMessage("Server stopped: " + serverPath, 3000);
+                updateServerStatus(); });
 
     connect(restartBtn, &QPushButton::clicked, this, [this, serverPath]()
             {
-        m_manager->restartServer(serverPath);
-        statusBar()->showMessage("Restarting server: " + serverPath, 3000);
-        updateServerStatus(); });
+                m_manager->restartServer(serverPath);
+                statusBar()->showMessage("Restarting server: " + serverPath, 3000);
+                updateServerStatus(); });
 
     QTabWidget *tabWidget = new QTabWidget;
 
@@ -356,11 +375,11 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     ConsoleWidget *console = new ConsoleWidget(serverPath, this);
     connect(console, &ConsoleWidget::commandSent, this, [this](const QString &path, const QString &cmd)
             {
-        if (m_manager) {
-            ServerProcess *proc = m_manager->getProcess(path);
-            if (proc)
-                proc->sendCommand(cmd);
-        } });
+                if (m_manager) {
+                    ServerProcess *proc = m_manager->getProcess(path);
+                    if (proc)
+                        proc->sendCommand(cmd);
+                } });
     m_consoles[serverPath] = console;
     tabWidget->addTab(console, "Console");
 
@@ -387,8 +406,8 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     QPushButton *editFilesBtn = new QPushButton("Edit Server Files");
     connect(editFilesBtn, &QPushButton::clicked, this, [this, serverPath]()
             {
-        ConfigEditor editor(serverPath, this);
-        editor.exec(); });
+                ConfigEditor editor(serverPath, this);
+                editor.exec(); });
     form->addRow(editFilesBtn);
 
     QPushButton *openDirBtn = new QPushButton("Open Server Directory");
@@ -403,14 +422,14 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
 
     connect(saveBtn, &QPushButton::clicked, this, [this, serverPath, portSpin, autoRestartCheck, delaySpin]()
             {
-        m_settings->setServerPort(serverPath, portSpin->value());
-        m_settings->setAutoRestart(serverPath, autoRestartCheck->isChecked());
-        m_settings->setRestartDelay(serverPath, delaySpin->value());
-        m_settings->save();
-        if (m_manager) {
-            m_manager->setAutoRestart(serverPath, autoRestartCheck->isChecked(), delaySpin->value());
-        }
-        statusBar()->showMessage("Settings saved for " + serverPath, 3000); });
+                m_settings->setServerPort(serverPath, portSpin->value());
+                m_settings->setAutoRestart(serverPath, autoRestartCheck->isChecked());
+                m_settings->setRestartDelay(serverPath, delaySpin->value());
+                m_settings->save();
+                if (m_manager) {
+                    m_manager->setAutoRestart(serverPath, autoRestartCheck->isChecked(), delaySpin->value());
+                }
+                statusBar()->showMessage("Settings saved for " + serverPath, 3000); });
 
     tabWidget->addTab(settingsPanel, "Settings");
 
@@ -440,11 +459,11 @@ ConsoleWidget *MainWindow::getConsoleForServer(const QString &serverPath)
     ConsoleWidget *console = new ConsoleWidget(serverPath, this);
     connect(console, &ConsoleWidget::commandSent, this, [this](const QString &path, const QString &cmd)
             {
-        if (m_manager) {
-            ServerProcess *proc = m_manager->getProcess(path);
-            if (proc)
-                proc->sendCommand(cmd);
-        } });
+                if (m_manager) {
+                    ServerProcess *proc = m_manager->getProcess(path);
+                    if (proc)
+                        proc->sendCommand(cmd);
+                } });
     m_consoles[serverPath] = console;
     return console;
 }
@@ -476,6 +495,30 @@ void MainWindow::updateServerStatus()
         m_restartButtons[path]->setEnabled(true);
     }
 
+    QJsonArray servers = m_settings->servers();
+    for (const QJsonValue &val : servers)
+    {
+        QJsonObject obj = val.toObject();
+        QString path = obj["path"].toString();
+        bool running = m_manager && m_manager->isServerRunning(path);
+        if (running)
+        {
+            int port = obj["port"].toInt(2302);
+            if (!m_pendingQueries.contains(path))
+                sendServerQuery(path, port);
+        }
+        else
+        {
+            m_playerCounts.remove(path);
+            m_maxPlayers.remove(path);
+            if (m_pendingQueries.contains(path))
+            {
+                m_pendingQueries[path]->deleteLater();
+                m_pendingQueries.remove(path);
+            }
+        }
+    }
+
     int idx = m_serverList->currentRow();
     if (idx < 0)
     {
@@ -493,12 +536,22 @@ void MainWindow::updateServerStatus()
     {
         ServerProcess *proc = m_manager->getProcess(path);
         qint64 uptime = proc ? proc->uptime() : 0;
+        int current = m_playerCounts.value(path, -1);
+        int max = m_maxPlayers.value(path, -1);
+        QString countStr;
+        if (current >= 0 && max >= 0)
+            countStr = QString("Players: %1/%2").arg(current).arg(max);
+        else
+            countStr = "Players: ?";
         QString html = QString(
                            "<b style='color: green;'>%1</b> "
                            "<span style='color: gray;'>|</span> "
-                           "<b>Running</b> for <b>%2</b> seconds")
+                           "<b>Running</b> for <b>%2</b> seconds "
+                           "<span style='color: gray;'>|</span> "
+                           "%3")
                            .arg(QDir::toNativeSeparators(path))
-                           .arg(uptime);
+                           .arg(uptime)
+                           .arg(countStr);
         m_statusLabel->setText(html);
     }
     else
@@ -510,6 +563,108 @@ void MainWindow::updateServerStatus()
                            .arg(QDir::toNativeSeparators(path));
         m_statusLabel->setText(html);
     }
+}
+
+void MainWindow::sendServerQuery(const QString &serverPath, int port)
+{
+    QUdpSocket *socket = new QUdpSocket(this);
+    m_pendingQueries[serverPath] = socket;
+
+    connect(socket, &QUdpSocket::readyRead, this, [this, serverPath, socket]()
+            {
+        while (socket->hasPendingDatagrams()) {
+            QByteArray data;
+            data.resize(socket->pendingDatagramSize());
+            QHostAddress sender;
+            quint16 senderPort;
+            socket->readDatagram(data.data(), data.size(), &sender, &senderPort);
+            qDebug() << "Received datagram from" << sender.toString() << senderPort << "size:" << data.size();
+            qDebug() << "Raw data:" << data;
+            parseQueryReply(serverPath, data);
+        }
+        socket->deleteLater();
+        m_pendingQueries.remove(serverPath); });
+
+    QTimer::singleShot(2000, this, [this, serverPath, socket]()
+                       {
+        if (m_pendingQueries.contains(serverPath) && m_pendingQueries[serverPath] == socket) {
+            qDebug() << "Query timeout for" << serverPath;
+            socket->deleteLater();
+            m_pendingQueries.remove(serverPath);
+        } });
+
+    QHostAddress address("127.0.0.1");
+    QByteArray query = "\\query";
+    qDebug() << "Sending query to" << address.toString() << "port" << port << "for server" << serverPath;
+    socket->writeDatagram(query, address, port);
+}
+
+void MainWindow::parseQueryReply(const QString &serverPath, const QByteArray &reply)
+{
+    QString replyStr = QString::fromUtf8(reply);
+    qDebug() << "Parsing reply for" << serverPath << ":" << replyStr;
+
+    QStringList parts = replyStr.split('\\', Qt::SkipEmptyParts);
+    qDebug() << "Parts:" << parts;
+
+    int players = -1;
+    int maxPlayers = -1;
+
+    for (int i = 0; i < parts.size() - 1; i += 2)
+    {
+        QString key = parts[i];
+        QString value = parts[i + 1];
+        if (key == "sv_players")
+        {
+            players = value.split(';', Qt::SkipEmptyParts).count();
+            qDebug() << "sv_players count:" << players;
+        }
+        else if (key == "sv_maxplayers")
+        {
+            maxPlayers = value.toInt();
+            qDebug() << "sv_maxplayers:" << maxPlayers;
+        }
+        else if (key == "players")
+        {
+            bool ok;
+            int num = value.toInt(&ok);
+            if (ok)
+            {
+                players = num;
+                qDebug() << "players (int):" << players;
+            }
+            else
+            {
+                players = value.split(';', Qt::SkipEmptyParts).count();
+                qDebug() << "players (list count):" << players;
+            }
+        }
+        else if (key == "maxplayers")
+        {
+            maxPlayers = value.toInt();
+            qDebug() << "maxplayers:" << maxPlayers;
+        }
+        else if (key == "numplayers")
+        {
+            players = value.toInt();
+            qDebug() << "numplayers:" << players;
+        }
+    }
+
+    if (players >= 0 && maxPlayers >= 0)
+    {
+        m_playerCounts[serverPath] = players;
+        m_maxPlayers[serverPath] = maxPlayers;
+        qDebug() << "Updated counts for" << serverPath << ":" << players << "/" << maxPlayers;
+    }
+    else
+    {
+        m_playerCounts[serverPath] = -1;
+        m_maxPlayers[serverPath] = -1;
+        qDebug() << "Failed to parse player counts for" << serverPath;
+    }
+
+    updateServerListStatus();
 }
 
 void MainWindow::onServerLog(const QString &serverPath, const QString &line, bool isError)
@@ -581,6 +736,13 @@ void MainWindow::onUninstallServer()
     m_startButtons.remove(path);
     m_stopButtons.remove(path);
     m_restartButtons.remove(path);
+    m_playerCounts.remove(path);
+    m_maxPlayers.remove(path);
+    if (m_pendingQueries.contains(path))
+    {
+        m_pendingQueries[path]->deleteLater();
+        m_pendingQueries.remove(path);
+    }
 
     refreshServerList();
     updateInstalledStatus();
