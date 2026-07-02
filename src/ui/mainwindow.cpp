@@ -152,24 +152,10 @@ void MainWindow::setupUi()
     m_toolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     addToolBar(Qt::TopToolBarArea, m_toolBar);
 
-    m_launchAction = new QAction("Start", this);
-    m_launchAction->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
-    connect(m_launchAction, &QAction::triggered, this, &MainWindow::onLaunchServer);
-    m_toolBar->addAction(m_launchAction);
-
-    m_stopAction = new QAction("Stop", this);
-    m_stopAction->setIcon(style()->standardIcon(QStyle::SP_MediaStop));
-    connect(m_stopAction, &QAction::triggered, this, &MainWindow::onStopServer);
-    m_toolBar->addAction(m_stopAction);
-
-    m_restartAction = new QAction("Restart", this);
-    m_restartAction->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
-    connect(m_restartAction, &QAction::triggered, this, &MainWindow::onRestartServer);
-    m_toolBar->addAction(m_restartAction);
-
-    m_launchAction->setEnabled(false);
-    m_stopAction->setEnabled(false);
-    m_restartAction->setEnabled(false);
+    m_aboutAction = new QAction("About", this);
+    m_aboutAction->setIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
+    connect(m_aboutAction, &QAction::triggered, this, &MainWindow::showAboutDialog);
+    m_toolBar->addAction(m_aboutAction);
 
     m_statusLabel = new QLabel(this);
     m_statusLabel->setTextFormat(Qt::RichText);
@@ -277,9 +263,7 @@ void MainWindow::refreshServerList()
     updateServerListStatus();
 
     if (m_serverList->count() > 0)
-    {
         m_serverList->setCurrentRow(0);
-    }
     onServerSelectionChanged();
 }
 
@@ -300,44 +284,6 @@ void MainWindow::updateServerListStatus()
     }
 }
 
-void MainWindow::onServerSelectionChanged()
-{
-    int idx = m_serverList->currentRow();
-    bool hasSelection = (idx >= 0);
-    m_launchAction->setEnabled(hasSelection);
-    m_stopAction->setEnabled(hasSelection);
-    m_restartAction->setEnabled(hasSelection);
-
-    if (hasSelection)
-    {
-        QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-        showConsoleForServer(path);
-
-        bool running = m_manager && m_manager->isServerRunning(path);
-        m_launchAction->setEnabled(!running);
-        m_stopAction->setEnabled(running);
-        m_restartAction->setEnabled(true);
-    }
-    else
-    {
-        m_contentStack->setCurrentIndex(0);
-    }
-    updateServerStatus();
-    updateToolbarColors();
-}
-
-void MainWindow::showConsoleForServer(const QString &serverPath)
-{
-    QWidget *detailWidget = getServerDetailWidget(serverPath);
-    if (detailWidget)
-    {
-        int index = m_contentStack->indexOf(detailWidget);
-        if (index == -1)
-            index = m_contentStack->addWidget(detailWidget);
-        m_contentStack->setCurrentIndex(index);
-    }
-}
-
 QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
 {
     if (m_serverDetailWidgets.contains(serverPath))
@@ -346,6 +292,64 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     QWidget *container = new QWidget;
     QVBoxLayout *layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
+
+    QHBoxLayout *controlLayout = new QHBoxLayout;
+
+    QPushButton *startBtn = new QPushButton("Start");
+    startBtn->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+    QPushButton *stopBtn = new QPushButton("Stop");
+    stopBtn->setIcon(style()->standardIcon(QStyle::SP_MediaStop));
+    QPushButton *restartBtn = new QPushButton("Restart");
+    restartBtn->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+
+    m_startButtons[serverPath] = startBtn;
+    m_stopButtons[serverPath] = stopBtn;
+    m_restartButtons[serverPath] = restartBtn;
+
+    connect(startBtn, &QPushButton::clicked, this, [this, serverPath]()
+            {
+        QJsonArray servers = m_settings->servers();
+        QString type;
+        int port = 2302;
+        for (const QJsonValue &val : servers) {
+            QJsonObject obj = val.toObject();
+            if (obj["path"].toString() == serverPath) {
+                type = obj["type"].toString();
+                port = obj["port"].toInt(2302);
+                break;
+            }
+        }
+        if (type.isEmpty())
+            return;
+        ConsoleWidget *console = getConsoleForServer(serverPath);
+        if (console)
+            console->clear();
+        if (m_manager->launchServer(serverPath, port, type)) {
+            statusBar()->showMessage("Server launched: " + serverPath, 3000);
+            updateServerStatus();
+            showConsoleForServer(serverPath);
+        } else {
+            statusBar()->showMessage("Failed to launch server", 3000);
+        } });
+
+    connect(stopBtn, &QPushButton::clicked, this, [this, serverPath]()
+            {
+        m_manager->stopServer(serverPath);
+        statusBar()->showMessage("Server stopped: " + serverPath, 3000);
+        updateServerStatus(); });
+
+    connect(restartBtn, &QPushButton::clicked, this, [this, serverPath]()
+            {
+        m_manager->restartServer(serverPath);
+        statusBar()->showMessage("Restarting server: " + serverPath, 3000);
+        updateServerStatus(); });
+
+    controlLayout->addWidget(startBtn);
+    controlLayout->addWidget(stopBtn);
+    controlLayout->addWidget(restartBtn);
+    controlLayout->addStretch();
+
+    layout->addLayout(controlLayout);
 
     QTabWidget *tabWidget = new QTabWidget;
 
@@ -403,11 +407,9 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
         m_settings->setAutoRestart(serverPath, autoRestartCheck->isChecked());
         m_settings->setRestartDelay(serverPath, delaySpin->value());
         m_settings->save();
-
         if (m_manager) {
             m_manager->setAutoRestart(serverPath, autoRestartCheck->isChecked(), delaySpin->value());
         }
-
         statusBar()->showMessage("Settings saved for " + serverPath, 3000); });
 
     tabWidget->addTab(settingsPanel, "Settings");
@@ -419,11 +421,22 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     return container;
 }
 
+void MainWindow::showConsoleForServer(const QString &serverPath)
+{
+    QWidget *detailWidget = getServerDetailWidget(serverPath);
+    if (detailWidget)
+    {
+        int index = m_contentStack->indexOf(detailWidget);
+        if (index == -1)
+            index = m_contentStack->addWidget(detailWidget);
+        m_contentStack->setCurrentIndex(index);
+    }
+}
+
 ConsoleWidget *MainWindow::getConsoleForServer(const QString &serverPath)
 {
     if (m_consoles.contains(serverPath))
         return m_consoles[serverPath];
-
     ConsoleWidget *console = new ConsoleWidget(serverPath, this);
     connect(console, &ConsoleWidget::commandSent, this, [this](const QString &path, const QString &cmd)
             {
@@ -436,75 +449,79 @@ ConsoleWidget *MainWindow::getConsoleForServer(const QString &serverPath)
     return console;
 }
 
-void MainWindow::onLaunchServer()
+void MainWindow::onServerSelectionChanged()
 {
     int idx = m_serverList->currentRow();
-    if (idx < 0)
-        return;
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-
-    QJsonArray servers = m_settings->servers();
-    QString type;
-    int port = 2302;
-    for (const QJsonValue &val : servers)
+    if (idx >= 0)
     {
-        QJsonObject obj = val.toObject();
-        if (obj["path"].toString() == path)
-        {
-            type = obj["type"].toString();
-            port = obj["port"].toInt(2302);
-            break;
-        }
-    }
-    if (type.isEmpty())
-        return;
-
-    ConsoleWidget *console = getConsoleForServer(path);
-    if (console)
-        console->clear();
-
-    if (m_manager->launchServer(path, port, type))
-    {
-        statusBar()->showMessage("Server launched: " + path, 3000);
-        updateServerStatus();
+        QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
         showConsoleForServer(path);
     }
     else
     {
-        statusBar()->showMessage("Failed to launch server", 3000);
+        m_contentStack->setCurrentIndex(0);
+    }
+    updateServerStatus();
+}
+
+void MainWindow::updateServerStatus()
+{
+    updateServerListStatus();
+
+    for (const QString &path : m_startButtons.keys())
+    {
+        bool running = m_manager && m_manager->isServerRunning(path);
+        m_startButtons[path]->setEnabled(!running);
+        m_stopButtons[path]->setEnabled(running);
+        m_restartButtons[path]->setEnabled(true);
+    }
+
+    int idx = m_serverList->currentRow();
+    if (idx < 0)
+    {
+        m_statusLabel->setText("<b>No server selected</b>");
+        return;
+    }
+    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
+    bool running = m_manager && m_manager->isServerRunning(path);
+
+    ConsoleWidget *console = m_consoles.value(path, nullptr);
+    if (console)
+        console->setRunning(running);
+
+    if (running)
+    {
+        ServerProcess *proc = m_manager->getProcess(path);
+        qint64 uptime = proc ? proc->uptime() : 0;
+        QString html = QString(
+                           "<b style='color: green;'>%1</b> "
+                           "<span style='color: gray;'>|</span> "
+                           "<b>Running</b> for <b>%2</b> seconds")
+                           .arg(QDir::toNativeSeparators(path))
+                           .arg(uptime);
+        m_statusLabel->setText(html);
+    }
+    else
+    {
+        QString html = QString(
+                           "<b style='color: red;'>%1</b> "
+                           "<span style='color: gray;'>|</span> "
+                           "<b>Stopped</b>")
+                           .arg(QDir::toNativeSeparators(path));
+        m_statusLabel->setText(html);
     }
 }
 
-void MainWindow::onStopServer()
+void MainWindow::onServerLog(const QString &serverPath, const QString &line, bool isError)
 {
-    int idx = m_serverList->currentRow();
-    if (idx < 0)
-        return;
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-    m_manager->stopServer(path);
-    statusBar()->showMessage("Server stopped: " + path, 3000);
-    updateServerStatus();
+    ConsoleWidget *console = getConsoleForServer(serverPath);
+    console->appendLog(line, isError);
 }
 
-void MainWindow::onRestartServer()
+void MainWindow::onServerStateChanged(const QString &serverPath, bool running)
 {
-    int idx = m_serverList->currentRow();
-    if (idx < 0)
-        return;
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-    m_manager->restartServer(path);
-    statusBar()->showMessage("Restarting server: " + path, 3000);
     updateServerStatus();
-}
-
-void MainWindow::onOpenConfigEditor()
-{
-    int idx = m_serverList->currentRow();
-    if (idx < 0)
-        return;
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-    ConfigEditor editor(path, this);
-    editor.exec();
+    statusBar()->showMessage(running ? "Server started: " + serverPath : "Server stopped: " + serverPath, 3000);
 }
 
 void MainWindow::onUninstallServer()
@@ -558,77 +575,16 @@ void MainWindow::onUninstallServer()
     {
         QWidget *w = m_serverDetailWidgets.take(path);
         if (m_contentStack->indexOf(w) != -1)
-        {
             m_contentStack->removeWidget(w);
-        }
         w->deleteLater();
     }
+    m_startButtons.remove(path);
+    m_stopButtons.remove(path);
+    m_restartButtons.remove(path);
 
     refreshServerList();
     updateInstalledStatus();
-
     statusBar()->showMessage("Server uninstalled: " + path, 3000);
-}
-
-void MainWindow::updateServerStatus()
-{
-    updateServerListStatus();
-    int idx = m_serverList->currentRow();
-    if (idx < 0)
-    {
-        m_statusLabel->setText("<b>No server selected</b>");
-        m_launchAction->setEnabled(false);
-        m_stopAction->setEnabled(false);
-        m_restartAction->setEnabled(false);
-        return;
-    }
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-    bool running = m_manager && m_manager->isServerRunning(path);
-    m_launchAction->setEnabled(!running);
-    m_stopAction->setEnabled(running);
-    m_restartAction->setEnabled(true);
-
-    ConsoleWidget *console = m_consoles.value(path, nullptr);
-    if (console)
-        console->setRunning(running);
-
-    if (running)
-    {
-        ServerProcess *proc = m_manager->getProcess(path);
-        qint64 uptime = proc ? proc->uptime() : 0;
-        QString html = QString(
-                           "<b style='color: green;'>%1</b> "
-                           "<span style='color: gray;'>|</span> "
-                           "<b>Running</b> for <b>%2</b> seconds")
-                           .arg(QDir::toNativeSeparators(path))
-                           .arg(uptime);
-        m_statusLabel->setText(html);
-    }
-    else
-    {
-        QString html = QString(
-                           "<b style='color: red;'>%1</b> "
-                           "<span style='color: gray;'>|</span> "
-                           "<b>Stopped</b>")
-                           .arg(QDir::toNativeSeparators(path));
-        m_statusLabel->setText(html);
-    }
-    updateToolbarColors();
-}
-
-void MainWindow::onServerLog(const QString &serverPath, const QString &line, bool isError)
-{
-    ConsoleWidget *console = getConsoleForServer(serverPath);
-    console->appendLog(line, isError);
-}
-
-void MainWindow::onServerStateChanged(const QString &serverPath, bool running)
-{
-    updateServerStatus();
-    if (running)
-        statusBar()->showMessage("Server started: " + serverPath, 3000);
-    else
-        statusBar()->showMessage("Server stopped: " + serverPath, 3000);
 }
 
 void MainWindow::createTrayIcon()
@@ -662,36 +618,6 @@ void MainWindow::setStatusText(const QString &text)
     statusBar()->showMessage(text);
 }
 
-void MainWindow::updateToolbarColors()
-{
-    int idx = m_serverList->currentRow();
-    bool hasSelection = (idx >= 0);
-    bool running = false;
-    if (hasSelection)
-    {
-        QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-        running = m_manager && m_manager->isServerRunning(path);
-    }
-
-    QWidget *launchWidget = m_toolBar->widgetForAction(m_launchAction);
-    QWidget *stopWidget = m_toolBar->widgetForAction(m_stopAction);
-
-    if (launchWidget)
-    {
-        if (hasSelection && !running)
-            launchWidget->setStyleSheet("QToolButton { color: green; }");
-        else
-            launchWidget->setStyleSheet("");
-    }
-    if (stopWidget)
-    {
-        if (hasSelection && running)
-            stopWidget->setStyleSheet("QToolButton { color: red; }");
-        else
-            stopWidget->setStyleSheet("");
-    }
-}
-
 void MainWindow::updateInstalledStatus()
 {
     QString basePath = m_installPathEdit->text();
@@ -700,11 +626,9 @@ void MainWindow::updateInstalledStatus()
         m_installStatusLabel->setText("");
         return;
     }
-
     QString type = m_serverTypeCombo->currentText();
     QString serverFolder = QDir(basePath).absoluteFilePath(type);
     bool installed = QDir(serverFolder).exists();
-
     if (installed)
     {
         m_installStatusLabel->setText(QStringLiteral("✅ Installed"));
@@ -715,4 +639,20 @@ void MainWindow::updateInstalledStatus()
         m_installStatusLabel->setText(QStringLiteral("❌ Not installed"));
         m_installStatusLabel->setStyleSheet("color: gray;");
     }
+}
+
+void MainWindow::showAboutDialog()
+{
+    QMessageBox aboutBox;
+    aboutBox.setWindowTitle("About");
+    aboutBox.setTextFormat(Qt::RichText);
+    aboutBox.setText(QString(
+                         "<h2>%1</h2>"
+                         "<p>Version %2</p>"
+                         "<p>Copyright &copy; 2026 Jericho Crosby (Chalwk)</p>"
+                         "<p>Licensed under the GPL License.</p>"
+                         "<p>Source code: <a href='https://github.com/Chalwk/HaloServerManager'>GitHub Repository</a></p>")
+                         .arg(QApplication::applicationName())
+                         .arg(QApplication::applicationVersion()));
+    aboutBox.exec();
 }

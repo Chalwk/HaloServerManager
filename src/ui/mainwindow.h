@@ -16,6 +16,7 @@
 #include <QToolBar>
 #include <QSystemTrayIcon>
 #include <QMenu>
+#include <QMap>
 
 class ServerInstaller;
 class ServerManager;
@@ -38,10 +39,6 @@ private slots:
     void onServerSelectionChanged();
     void refreshServerList();
 
-    void onLaunchServer();
-    void onStopServer();
-    void onRestartServer();
-    void onOpenConfigEditor();
     void onUninstallServer();
 
     void updateServerStatus();
@@ -52,6 +49,8 @@ private slots:
 
     void updateInstalledStatus();
 
+    void showAboutDialog();
+
 private:
     void setupUi();
     void loadConfig();
@@ -61,7 +60,6 @@ private:
     QWidget *getServerDetailWidget(const QString &serverPath);
     void showConsoleForServer(const QString &serverPath);
     void setStatusText(const QString &text);
-    void updateToolbarColors();
 
     QTabWidget *m_tabWidget;
 
@@ -78,9 +76,7 @@ private:
     QListWidget *m_serverList;
     QStackedWidget *m_contentStack;
     QToolBar *m_toolBar;
-    QAction *m_launchAction;
-    QAction *m_stopAction;
-    QAction *m_restartAction;
+    QAction *m_aboutAction;
 
     ServerInstaller *m_installer;
     ServerManager *m_manager;
@@ -91,6 +87,10 @@ private:
 
     QMap<QString, ConsoleWidget *> m_consoles;
     QMap<QString, QWidget *> m_serverDetailWidgets;
+
+    QMap<QString, QPushButton *> m_startButtons;
+    QMap<QString, QPushButton *> m_stopButtons;
+    QMap<QString, QPushButton *> m_restartButtons;
 };
 
 #endif

@@ -9,6 +9,12 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/src/version.h
+    @ONLY
+)
+
 add_executable(${PROJECT_NAME} WIN32
     src/main.cpp
     src/ui/mainwindow.cpp
@@ -22,7 +28,8 @@ add_executable(${PROJECT_NAME} WIN32
     resources/resources.qrc
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE src)
+target_include_directories(${PROJECT_NAME} PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/src)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
