@@ -71,7 +71,7 @@ void Settings::addServer(const QString &path, const QString &type, int port)
     newServer["type"] = type;
     newServer["port"] = port;
     newServer["autoStart"] = false;
-    newServer["autoRestart"] = false;
+    newServer["autoRestart"] = true;
     newServer["restartDelay"] = 5;
     arr.append(newServer);
     m_config["servers"] = arr;

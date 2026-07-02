@@ -41,7 +41,6 @@ private slots:
     void onLaunchServer();
     void onStopServer();
     void onRestartServer();
-    void onToggleAutoRestart(bool checked);
     void onOpenConfigEditor();
 
     void updateServerStatus();
@@ -76,8 +75,6 @@ private:
     QAction *m_launchAction;
     QAction *m_stopAction;
     QAction *m_restartAction;
-    QAction *m_autoRestartAction;
-    QAction *m_configAction;
 
     ServerInstaller *m_installer;
     ServerManager *m_manager;

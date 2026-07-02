@@ -92,16 +92,17 @@ namespace
                 highlightingRules.append(rule);
             }
 
-            QTextCharFormat commentFormat;
-            commentFormat.setForeground(Qt::darkGreen);
-            commentFormat.setFontItalic(true);
+            QTextCharFormat blockCommentFormat;
+            blockCommentFormat.setForeground(Qt::darkGreen);
+            blockCommentFormat.setFontItalic(true);
             HighlightingRule rule;
             rule.pattern = QRegularExpression("--[^\\[]*$");
-            rule.format = commentFormat;
+            rule.format = blockCommentFormat;
             highlightingRules.append(rule);
 
             commentStartExpression = QRegularExpression("--\\[\\[");
             commentEndExpression = QRegularExpression("\\]\\]");
+            commentFormat = blockCommentFormat;
 
             QTextCharFormat stringFormat;
             stringFormat.setForeground(Qt::darkRed);

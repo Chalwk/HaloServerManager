@@ -135,16 +135,6 @@ void MainWindow::setupUi()
     serversLayout->addWidget(splitter);
     m_tabWidget->addTab(serversTab, "Servers");
 
-    QWidget *settingsTab = new QWidget();
-    QVBoxLayout *settingsLayout = new QVBoxLayout(settingsTab);
-    QLabel *infoLabel = new QLabel(
-        "Server-specific settings (port, auto-restart, restart delay) are available "
-        "when you select a server in the Servers tab.");
-    infoLabel->setWordWrap(true);
-    settingsLayout->addWidget(infoLabel);
-    settingsLayout->addStretch();
-    m_tabWidget->addTab(settingsTab, "Settings");
-
     m_toolBar = new QToolBar(this);
     m_toolBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     addToolBar(Qt::TopToolBarArea, m_toolBar);
@@ -164,25 +154,9 @@ void MainWindow::setupUi()
     connect(m_restartAction, &QAction::triggered, this, &MainWindow::onRestartServer);
     m_toolBar->addAction(m_restartAction);
 
-    m_toolBar->addSeparator();
-
-    m_autoRestartAction = new QAction("Auto-Restart", this);
-    m_autoRestartAction->setCheckable(true);
-    connect(m_autoRestartAction, &QAction::triggered, this, &MainWindow::onToggleAutoRestart);
-    m_toolBar->addAction(m_autoRestartAction);
-
-    m_toolBar->addSeparator();
-
-    m_configAction = new QAction("Edit Server Files", this);
-    m_configAction->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
-    connect(m_configAction, &QAction::triggered, this, &MainWindow::onOpenConfigEditor);
-    m_toolBar->addAction(m_configAction);
-
     m_launchAction->setEnabled(false);
     m_stopAction->setEnabled(false);
     m_restartAction->setEnabled(false);
-    m_autoRestartAction->setEnabled(false);
-    m_configAction->setEnabled(false);
 }
 
 void MainWindow::loadConfig()
@@ -305,16 +279,11 @@ void MainWindow::onServerSelectionChanged()
     m_launchAction->setEnabled(hasSelection);
     m_stopAction->setEnabled(hasSelection);
     m_restartAction->setEnabled(hasSelection);
-    m_autoRestartAction->setEnabled(hasSelection);
-    m_configAction->setEnabled(hasSelection);
 
     if (hasSelection)
     {
         QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
         showConsoleForServer(path);
-
-        bool autoRestart = m_settings->autoRestart(path);
-        m_autoRestartAction->setChecked(autoRestart);
 
         bool running = m_manager && m_manager->isServerRunning(path);
         m_launchAction->setEnabled(!running);
@@ -383,6 +352,13 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
     QPushButton *saveBtn = new QPushButton("Save Settings");
     form->addRow(saveBtn);
 
+    QPushButton *editFilesBtn = new QPushButton("Edit Server Files");
+    connect(editFilesBtn, &QPushButton::clicked, this, [this, serverPath]()
+            {
+        ConfigEditor editor(serverPath, this);
+        editor.exec(); });
+    form->addRow(editFilesBtn);
+
     connect(saveBtn, &QPushButton::clicked, this, [this, serverPath, portSpin, autoRestartCheck, delaySpin]()
             {
         m_settings->setServerPort(serverPath, portSpin->value());
@@ -393,8 +369,6 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
         if (m_manager) {
             m_manager->setAutoRestart(serverPath, autoRestartCheck->isChecked(), delaySpin->value());
         }
-
-        m_autoRestartAction->setChecked(autoRestartCheck->isChecked());
 
         statusBar()->showMessage("Settings saved for " + serverPath, 3000); });
 
@@ -483,21 +457,6 @@ void MainWindow::onRestartServer()
     m_manager->restartServer(path);
     statusBar()->showMessage("Restarting server: " + path, 3000);
     updateServerStatus();
-}
-
-void MainWindow::onToggleAutoRestart(bool checked)
-{
-    int idx = m_serverList->currentRow();
-    if (idx < 0)
-        return;
-    QString path = m_serverList->item(idx)->data(Qt::UserRole).toString();
-    m_settings->setAutoRestart(path, checked);
-    m_settings->save();
-    if (m_manager)
-    {
-        m_manager->setAutoRestart(path, checked, m_settings->restartDelay(path));
-    }
-    statusBar()->showMessage(QString("Auto-restart %1 for %2").arg(checked ? "enabled" : "disabled", path), 3000);
 }
 
 void MainWindow::onOpenConfigEditor()
