@@ -266,7 +266,7 @@ void MainWindow::updateServerListStatus()
         QListWidgetItem *item = m_serverList->item(i);
         QString path = item->data(Qt::UserRole).toString();
         bool running = m_manager && m_manager->isServerRunning(path);
-        item->setText(QString("%1  [%2] %3").arg(QDir::toNativeSeparators(path), running ? "●" : "○", running ? "RUNNING" : "STOPPED"));
+        item->setText(QString("%1  [%2] %3").arg(QDir::toNativeSeparators(path), running ? "🟢" : "🔴", running ? "RUNNING" : "STOPPED"));
         if (running)
             item->setForeground(Qt::darkGreen);
         else

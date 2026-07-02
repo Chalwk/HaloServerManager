@@ -29,6 +29,7 @@ private slots:
 
 private:
     void extractZip(const QString &zipFile, const QString &destDir, const QString &serverType);
+    bool confirmOverwrite(const QString &destDir, const QString &serverType);
 
     QNetworkAccessManager *m_network;
     QString m_serverType;

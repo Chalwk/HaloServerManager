@@ -9,6 +9,9 @@
 #include <QTemporaryFile>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QMessageBox>
+#include <QApplication>
+#include <QDebug>
 
 ServerInstaller::ServerInstaller(QObject *parent)
     : QObject(parent), m_network(new QNetworkAccessManager(this))
@@ -19,6 +22,16 @@ void ServerInstaller::installServer(const QString &serverType, const QString &de
 {
     m_serverType = serverType;
     m_destPath = destinationPath;
+
+    QString serverFolder = QDir(destinationPath).absoluteFilePath(serverType);
+    if (QDir(serverFolder).exists())
+    {
+        if (!confirmOverwrite(destinationPath, serverType))
+        {
+            emit installationFinished(false, "Installation cancelled by user.");
+            return;
+        }
+    }
 
     QString url;
     if (serverType == "SAPP_CE")
@@ -96,4 +109,27 @@ void ServerInstaller::extractZip(const QString &zipFile, const QString &destDir,
     {
         emit installationFinished(false, "Failed to extract the archive.");
     }
+}
+
+bool ServerInstaller::confirmOverwrite(const QString &destDir, const QString &serverType)
+{
+    QString serverFolder = QDir(destDir).absoluteFilePath(serverType);
+    qDebug() << "Checking for existing server folder:" << serverFolder;
+
+    if (!QDir(serverFolder).exists())
+    {
+        qDebug() << "Folder does not exist, proceeding with installation.";
+        return true;
+    }
+
+    qDebug() << "Folder exists, prompting user for overwrite.";
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        nullptr,
+        "Overwrite Existing Server?",
+        QString("The server folder '%1' already exists.\nDo you want to overwrite it?")
+            .arg(QDir::toNativeSeparators(serverFolder)),
+        QMessageBox::Yes | QMessageBox::No);
+
+    return (reply == QMessageBox::Yes);
 }

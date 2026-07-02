@@ -12,6 +12,7 @@
 #include <QTextCharFormat>
 #include <QSplitter>
 #include <QHeaderView>
+#include <QSortFilterProxyModel>
 #include <utility>
 #include <QStringDecoder>
 #include <QStringEncoder>
@@ -84,9 +85,11 @@ namespace
                 "and", "break", "do", "else", "elseif", "end", "false", "for",
                 "function", "if", "in", "local", "nil", "not", "or", "repeat",
                 "return", "then", "true", "until", "while"};
+
             QTextCharFormat keywordFormat;
             keywordFormat.setForeground(Qt::darkMagenta);
             keywordFormat.setFontWeight(QFont::Bold);
+
             for (const QString &pattern : keywordPatterns)
             {
                 HighlightingRule rule;
@@ -112,6 +115,7 @@ namespace
             rule.pattern = QRegularExpression("\".*\"");
             rule.format = stringFormat;
             highlightingRules.append(rule);
+
             rule.pattern = QRegularExpression("'.*'");
             rule.format = stringFormat;
             highlightingRules.append(rule);
@@ -171,6 +175,45 @@ namespace
         QRegularExpression commentStartExpression;
         QRegularExpression commentEndExpression;
     };
+
+    class FileFilterModel : public QSortFilterProxyModel
+    {
+    public:
+        explicit FileFilterModel(QObject *parent = nullptr)
+            : QSortFilterProxyModel(parent)
+        {
+        }
+
+    protected:
+        bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
+        {
+            auto *fs = qobject_cast<QFileSystemModel *>(sourceModel());
+            if (!fs)
+                return true;
+
+            QModelIndex index = fs->index(sourceRow, 0, sourceParent);
+            if (!index.isValid())
+                return true;
+
+            QFileInfo info = fs->fileInfo(index);
+
+            if (info.isDir())
+            {
+                const QString relativePath =
+                    QDir(fs->rootPath()).relativeFilePath(info.absoluteFilePath());
+
+                const QString normalized =
+                    QDir::fromNativeSeparators(relativePath).toLower();
+
+                if (normalized == "maps" || normalized == "cg/savegames")
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    };
 }
 
 ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
@@ -190,9 +233,12 @@ ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
     m_fileModel->setNameFilterDisables(false);
     m_fileModel->setFilter(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
 
+    auto *proxyModel = new FileFilterModel(this);
+    proxyModel->setSourceModel(m_fileModel);
+
     m_fileTree = new QTreeView(this);
-    m_fileTree->setModel(m_fileModel);
-    m_fileTree->setRootIndex(m_fileModel->index(m_serverPath));
+    m_fileTree->setModel(proxyModel);
+    m_fileTree->setRootIndex(proxyModel->mapFromSource(m_fileModel->index(m_serverPath)));
     m_fileTree->setHeaderHidden(true);
     m_fileTree->setIndentation(15);
     m_fileTree->setMinimumWidth(300);
@@ -231,7 +277,10 @@ void ConfigEditor::onFileSelected(const QModelIndex &index)
     if (!index.isValid())
         return;
 
-    QString absolutePath = m_fileModel->fileInfo(index).absoluteFilePath();
+    auto *proxyModel = qobject_cast<QSortFilterProxyModel *>(m_fileTree->model());
+    QModelIndex sourceIndex = proxyModel ? proxyModel->mapToSource(index) : index;
+
+    QString absolutePath = m_fileModel->fileInfo(sourceIndex).absoluteFilePath();
     QFileInfo info(absolutePath);
     if (info.isFile())
         loadFile(absolutePath);
