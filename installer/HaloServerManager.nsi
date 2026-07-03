@@ -2,15 +2,22 @@
 ; Licensed under the GPL License.
 
 !include "MUI2.nsh"
+!include "..\build\installer\config.nsh"
 
-!define PRODUCT_NAME "HaloServerManager"
-!define PRODUCT_VERSION "1.0.0"
-!define PRODUCT_PUBLISHER "Chalwk"
+!ifndef PRODUCT_NAME
+  !define PRODUCT_NAME "HaloServerManager"
+!endif
+!ifndef PRODUCT_VERSION
+  !define PRODUCT_VERSION "1.0.0"
+!endif
+!ifndef PRODUCT_PUBLISHER
+  !define PRODUCT_PUBLISHER "Chalwk"
+!endif
 
 SetCompressor /SOLID lzma
 
 Name "${PRODUCT_NAME}"
-OutFile "HaloServerManagerSetup.exe"
+OutFile "${PRODUCT_NAME}Setup.exe"
 InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"
 RequestExecutionLevel admin
 

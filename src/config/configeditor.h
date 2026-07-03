@@ -64,6 +64,7 @@ private:
     QAction *m_newFileAction;
     QAction *m_newFolderAction;
     QAction *m_deleteAction;
+    QLabel *m_statusLabel;
 };
 
 #endif

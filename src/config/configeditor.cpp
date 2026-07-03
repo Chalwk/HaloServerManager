@@ -398,6 +398,13 @@ ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
     splitter->setStretchFactor(1, 1);
     mainLayout->addWidget(splitter);
 
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setText("Right-click on a file or folder in the tree to create new items or delete existing ones.");
+    m_statusLabel->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    m_statusLabel->setStyleSheet("background-color: #f0f0f0; padding: 4px;");
+    m_statusLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    mainLayout->addWidget(m_statusLabel);
+
     QHBoxLayout *btnLayout = new QHBoxLayout();
     m_saveButton = new QPushButton("Save", this);
     m_closeButton = new QPushButton("Close", this);
@@ -559,7 +566,7 @@ void ConfigEditor::deleteSelected()
         {
             QMessageBox::StandardButton recReply = QMessageBox::question(
                 this,
-                "Delete Non‑empty Folder",
+                "Delete Non-empty Folder",
                 "The folder is not empty. Delete its contents as well?",
                 QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
             if (recReply == QMessageBox::Cancel)
