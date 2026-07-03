@@ -41,6 +41,7 @@
 #include <QUdpSocket>
 #include <QDebug>
 #include <QHostAddress>
+#include <QSet>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_installer(nullptr), m_manager(nullptr), m_settings(new Settings(this))
@@ -355,6 +356,14 @@ QWidget *MainWindow::getServerDetailWidget(const QString &serverPath)
 
     connect(stopBtn, &QPushButton::clicked, this, [this, serverPath]()
             {
+                m_queryInfo.remove(serverPath);
+                if (m_pendingQueries.contains(serverPath)) {
+                    m_pendingQueries[serverPath]->deleteLater();
+                    m_pendingQueries.remove(serverPath);
+                }
+                m_stoppingServers.insert(serverPath);
+                updateQueryInfoDisplay(serverPath);
+
                 m_manager->stopServer(serverPath);
                 statusBar()->showMessage("Server stopped: " + serverPath, 3000);
                 updateServerStatus(); });
@@ -515,9 +524,12 @@ void MainWindow::updateServerStatus()
         bool running = m_manager && m_manager->isServerRunning(path);
         if (running)
         {
-            int port = obj["port"].toInt(2302);
-            if (!m_pendingQueries.contains(path))
-                sendServerQuery(path, port);
+            if (!m_stoppingServers.contains(path))
+            {
+                int port = obj["port"].toInt(2302);
+                if (!m_pendingQueries.contains(path))
+                    sendServerQuery(path, port);
+            }
         }
         else
         {
@@ -563,6 +575,8 @@ void MainWindow::updateServerStatus()
                            .arg(QDir::toNativeSeparators(path));
         m_statusLabel->setText(html);
     }
+
+    updateQueryInfoDisplay(path);
 }
 
 void MainWindow::sendServerQuery(const QString &serverPath, int port)
@@ -601,6 +615,9 @@ void MainWindow::sendServerQuery(const QString &serverPath, int port)
 
 void MainWindow::parseQueryReply(const QString &serverPath, const QByteArray &reply)
 {
+    if (!m_runningServers.contains(serverPath))
+        return;
+
     QString replyStr = QString::fromUtf8(reply);
     qDebug() << "Parsing reply for" << serverPath << ":" << replyStr;
 
@@ -709,12 +726,16 @@ void MainWindow::onServerLog(const QString &serverPath, const QString &line, boo
 
 void MainWindow::onServerStateChanged(const QString &serverPath, bool running)
 {
-    if (!running)
+    if (running)
     {
-        if (m_queryInfo.contains(serverPath))
-        {
-            m_queryInfo[serverPath].valid = false;
-        }
+        m_runningServers.insert(serverPath);
+        m_stoppingServers.remove(serverPath);
+    }
+    else
+    {
+        m_runningServers.remove(serverPath);
+        m_stoppingServers.remove(serverPath);
+        m_queryInfo.remove(serverPath);
         int idx = m_serverList->currentRow();
         if (idx >= 0)
         {
@@ -787,6 +808,7 @@ void MainWindow::onUninstallServer()
     m_stopButtons.remove(path);
     m_restartButtons.remove(path);
     m_queryInfo.remove(path);
+    m_runningServers.remove(path);
     if (m_pendingQueries.contains(path))
     {
         m_pendingQueries[path]->deleteLater();
@@ -803,9 +825,12 @@ void MainWindow::createTrayIcon()
     m_trayIcon = new QSystemTrayIcon(this);
 
     QPixmap pixmap(":/icons/app_icon.png");
-    if (!pixmap.isNull()) {
+    if (!pixmap.isNull())
+    {
         m_trayIcon->setIcon(QIcon(pixmap));
-    } else {
+    }
+    else
+    {
         m_trayIcon->setIcon(QIcon(":/icons/app_icon.png"));
     }
 

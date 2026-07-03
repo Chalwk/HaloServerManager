@@ -18,6 +18,7 @@
 #include <QMenu>
 #include <QMap>
 #include <QGroupBox>
+#include <QSet>
 
 class ServerInstaller;
 class ServerManager;
@@ -122,6 +123,9 @@ private:
     QLabel *m_playersLabel;
     QLabel *m_teamplayLabel;
     QLabel *m_fraglimitLabel;
+
+    QSet<QString> m_runningServers;
+    QSet<QString> m_stoppingServers;
 };
 
 #endif
