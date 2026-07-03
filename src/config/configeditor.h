@@ -46,7 +46,8 @@ private:
     void setHighlighterForFile(const QString &filePath);
     QModelIndex getCurrentIndex() const;
     QString getCurrentDirectory() const;
-    QModelIndex mapToSource(const QModelIndex &index) const;
+
+    bool isLockedFile(const QString &filePath) const;
 
     QString m_serverPath;
     QTreeView *m_fileTree;

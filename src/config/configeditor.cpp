@@ -185,43 +185,6 @@ namespace
         QRegularExpression commentEndExpression;
     };
 
-    class FileFilterModel : public QSortFilterProxyModel
-    {
-    public:
-        explicit FileFilterModel(QObject *parent = nullptr)
-            : QSortFilterProxyModel(parent)
-        {
-        }
-
-    protected:
-        bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
-        {
-            auto *fs = qobject_cast<QFileSystemModel *>(sourceModel());
-            if (!fs)
-                return true;
-
-            QModelIndex index = fs->index(sourceRow, 0, sourceParent);
-            if (!index.isValid())
-                return true;
-
-            QFileInfo info = fs->fileInfo(index);
-
-            if (info.isDir())
-            {
-                const QString relativePath =
-                    QDir(fs->rootPath()).relativeFilePath(info.absoluteFilePath());
-
-                const QString normalized =
-                    QDir::fromNativeSeparators(relativePath).toLower();
-
-                if (normalized == "maps" || normalized == "cg/savegames" || normalized == "cg/saved")
-                    return false;
-            }
-
-            return true;
-        }
-    };
-
     class DragDropTreeView : public QTreeView
     {
     public:
@@ -263,12 +226,10 @@ namespace
             QString targetDir;
             if (index.isValid())
             {
-                auto *proxy = qobject_cast<QSortFilterProxyModel *>(model());
-                QModelIndex sourceIndex = proxy ? proxy->mapToSource(index) : index;
-                auto *fs = qobject_cast<QFileSystemModel *>(proxy ? proxy->sourceModel() : model());
+                auto *fs = qobject_cast<QFileSystemModel *>(model());
                 if (fs)
                 {
-                    QString filePath = fs->filePath(sourceIndex);
+                    QString filePath = fs->filePath(index);
                     QFileInfo info(filePath);
                     if (info.isDir())
                         targetDir = filePath;
@@ -278,8 +239,7 @@ namespace
             }
             if (targetDir.isEmpty())
             {
-                auto *fs = qobject_cast<QFileSystemModel *>(
-                    qobject_cast<QSortFilterProxyModel *>(model()) ? qobject_cast<QSortFilterProxyModel *>(model())->sourceModel() : model());
+                auto *fs = qobject_cast<QFileSystemModel *>(model());
                 if (fs)
                     targetDir = fs->rootPath();
             }
@@ -365,17 +325,12 @@ ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
 
     m_fileModel = new QFileSystemModel(this);
     m_fileModel->setRootPath(m_serverPath);
-    m_fileModel->setNameFilters({"*.txt", "*.cfg", "*.lua"});
-    m_fileModel->setNameFilterDisables(false);
     m_fileModel->setFilter(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);
     m_fileModel->setReadOnly(false);
 
-    auto *proxyModel = new FileFilterModel(this);
-    proxyModel->setSourceModel(m_fileModel);
-
     m_fileTree = new DragDropTreeView(this);
-    m_fileTree->setModel(proxyModel);
-    m_fileTree->setRootIndex(proxyModel->mapFromSource(m_fileModel->index(m_serverPath)));
+    m_fileTree->setModel(m_fileModel);
+    m_fileTree->setRootIndex(m_fileModel->index(m_serverPath));
     m_fileTree->setHeaderHidden(true);
     m_fileTree->setIndentation(15);
     m_fileTree->setMinimumWidth(300);
@@ -436,6 +391,13 @@ ConfigEditor::ConfigEditor(const QString &serverPath, QWidget *parent)
     m_fileTree->expandToDepth(1);
 }
 
+bool ConfigEditor::isLockedFile(const QString &filePath) const
+{
+    static const QStringList lockedSuffixes = {"dll", "exe", "hac", "lst", "map", "sav"};
+    QFileInfo info(filePath);
+    return lockedSuffixes.contains(info.suffix().toLower());
+}
+
 QModelIndex ConfigEditor::getCurrentIndex() const
 {
     QModelIndexList selected = m_fileTree->selectionModel()->selectedIndexes();
@@ -448,21 +410,11 @@ QString ConfigEditor::getCurrentDirectory() const
 {
     QModelIndex idx = getCurrentIndex();
     if (!idx.isValid())
-    {
         return m_serverPath;
-    }
 
-    auto *proxy = qobject_cast<QSortFilterProxyModel *>(m_fileTree->model());
-    QModelIndex sourceIdx = proxy ? proxy->mapToSource(idx) : idx;
-    QString path = m_fileModel->filePath(sourceIdx);
+    QString path = m_fileModel->filePath(idx);
     QFileInfo info(path);
     return info.isDir() ? path : info.absolutePath();
-}
-
-QModelIndex ConfigEditor::mapToSource(const QModelIndex &index) const
-{
-    auto *proxy = qobject_cast<QSortFilterProxyModel *>(m_fileTree->model());
-    return proxy ? proxy->mapToSource(index) : index;
 }
 
 void ConfigEditor::onCustomContextMenu(const QPoint &pos)
@@ -537,9 +489,7 @@ void ConfigEditor::deleteSelected()
     if (!idx.isValid())
         return;
 
-    auto *proxy = qobject_cast<QSortFilterProxyModel *>(m_fileTree->model());
-    QModelIndex sourceIdx = proxy ? proxy->mapToSource(idx) : idx;
-    QString path = m_fileModel->filePath(sourceIdx);
+    QString path = m_fileModel->filePath(idx);
     QFileInfo info(path);
 
     if (QDir::toNativeSeparators(path) == QDir::toNativeSeparators(m_serverPath))
@@ -604,10 +554,7 @@ void ConfigEditor::onFileSelected(const QModelIndex &index)
     if (!index.isValid())
         return;
 
-    auto *proxyModel = qobject_cast<QSortFilterProxyModel *>(m_fileTree->model());
-    QModelIndex sourceIndex = proxyModel ? proxyModel->mapToSource(index) : index;
-
-    QString absolutePath = m_fileModel->fileInfo(sourceIndex).absoluteFilePath();
+    QString absolutePath = m_fileModel->fileInfo(index).absoluteFilePath();
     QFileInfo info(absolutePath);
     if (info.isFile())
         loadFile(absolutePath);
@@ -617,6 +564,19 @@ void ConfigEditor::loadFile(const QString &absolutePath)
 {
     m_currentAbsolutePath = absolutePath;
 
+    if (isLockedFile(absolutePath))
+    {
+        m_textEdit->setPlainText("This file type is locked and cannot be edited");
+        m_textEdit->setReadOnly(true);
+        m_saveButton->setEnabled(false);
+        setHighlighterForFile(QString());
+        m_statusLabel->setText("Locked file - editing disabled.");
+        return;
+    }
+
+    m_textEdit->setReadOnly(false);
+    m_saveButton->setEnabled(true);
+
     QFile file(absolutePath);
     if (!file.open(QIODevice::ReadOnly))
     {
@@ -624,6 +584,7 @@ void ConfigEditor::loadFile(const QString &absolutePath)
         setHighlighterForFile(QString());
         m_encoding = Utf8;
         m_hasBom = false;
+        m_statusLabel->setText("Failed to load file.");
         return;
     }
 
@@ -691,6 +652,7 @@ void ConfigEditor::loadFile(const QString &absolutePath)
 
     m_textEdit->setPlainText(text);
     setHighlighterForFile(absolutePath);
+    m_statusLabel->setText(QString("Loaded: %1").arg(QDir::toNativeSeparators(absolutePath)));
 }
 
 void ConfigEditor::setHighlighterForFile(const QString &filePath)
@@ -723,6 +685,12 @@ void ConfigEditor::saveFile()
     if (m_currentAbsolutePath.isEmpty())
     {
         QMessageBox::warning(this, "Error", "No file is currently loaded.");
+        return;
+    }
+
+    if (isLockedFile(m_currentAbsolutePath))
+    {
+        QMessageBox::warning(this, "Error", "This file is locked and cannot be saved.");
         return;
     }
 
@@ -771,6 +739,7 @@ void ConfigEditor::saveFile()
     file.close();
 
     QMessageBox::information(this, "Saved", "File saved successfully.");
+    m_statusLabel->setText(QString("Saved: %1").arg(QDir::toNativeSeparators(m_currentAbsolutePath)));
 }
 
 void ConfigEditor::onSave()
