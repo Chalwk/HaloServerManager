@@ -1,6 +1,6 @@
 # HaloServerManager
 
-A Windows desktop application built with Qt Widgets that downloads, installs, and manages dedicated servers for Halo CE and Halo PC (SAPP). It simplifies server deployment with a graphical interface for installation, launching, stopping, and port configuration.
+A Windows desktop application that downloads, installs, and manages SAPP servers for Halo PC & CE, and simplifies deployment with a GUI for installation, launching, and configuration.
 
 [![Version][version-badge]][version-link]
 [![License: GPL v3][license-badge]][license-link]
@@ -29,14 +29,12 @@ A Windows desktop application built with Qt Widgets that downloads, installs, an
 
 ### Features
 
-- **One-Click Installation** - Download and extract pre-packaged SAPP server templates (CE and PC) directly from GitHub releases.
-- **Server Management** - Launch, stop, and restart dedicated servers with a single click; view real-time running status in the server list.
+- **One-Click Installation** - Download and install pre-packaged SAPP server templates directly from GitHub releases.
+- **Server Management** - Launch, stop, and restart servers with a single click; view real-time running status in the server list.
 - **Live Console Output** - See the server's console output **inside the application**.
 - **Command Sending** - Type commands into the console input line and send them directly to the running server (e.g., `map`, `pl`, `k`).
 - **Configuration Editor** - Edit `init.txt`, `mapcycle.txt`, etc., directly from the UI with syntax highlighting and save support.
 - **Auto-Restart** - Enable automatic restart if the server crashes (configurable delay).
-- **Port Configuration** - Easily change the server port via the Settings tab; settings are persisted.
-- **Multiple Servers** - Keep track of several installed server instances; select which one to control.
 - **System Tray** - Minimize to tray with a context menu for quick actions; double-click to restore the window.
 - **Data Persistence** - User configuration (installed servers, port, auto-start/restart flags) is saved locally in `%APPDATA%\HaloServerManager\config.json`.
 
